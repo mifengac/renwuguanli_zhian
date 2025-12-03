@@ -283,7 +283,35 @@ npm start
 
 ### Docker 部署
 
-（待添加 Docker 配置）
+本项目支持使用 Docker Compose 进行快速部署。
+
+1. **构建并启动服务**
+
+```bash
+docker-compose up -d --build
+```
+
+此命令将启动以下服务：
+- `web`: Next.js 应用服务 (端口 3000)
+- `postgres`: PostgreSQL 数据库 (端口 5432)
+- `minio`: MinIO 对象存储服务 (端口 9000, 控制台端口 9001)
+
+2. **查看日志**
+
+```bash
+docker-compose logs -f
+```
+
+3. **停止服务**
+
+```bash
+docker-compose down
+```
+
+**注意**: 
+- 首次启动时，数据库会自动初始化。
+- 请确保 `.env` 文件中的配置与 `docker-compose.yml` 中的环境变量保持一致，或者直接使用 `docker-compose.yml` 中定义的默认值进行测试。
+- 如果需要离线部署，可以使用 `docker-compose-offline.yml`。
 
 ## 开发规范
 
