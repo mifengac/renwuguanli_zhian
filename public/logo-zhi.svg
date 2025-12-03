@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="治安任务管理系统">
+  <defs>
+    <linearGradient id="zhi-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="50%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#zhi-bg)"/>
+
+  <rect x="16" y="88" width="96" height="10" rx="5" fill="rgba(255,255,255,0.18)"/>
+
+  <text
+    x="50%"
+    y="50%"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="64"
+    font-weight="700"
+    fill="#ffffff">
+    治
+  </text>
+
+  <circle cx="96" cy="32" r="6" fill="#facc15" />
+</svg>
+

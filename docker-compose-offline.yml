@@ -1,0 +1,49 @@
+services:
+  app:
+    image: zhian-renwu1129
+    container_name: zhian-app
+    restart: unless-stopped
+    depends_on:
+      - db
+      - minio
+    environment:
+      DATABASE_URL: "postgresql://postgres:Asd@199312@db:5432/postgres?schema=public"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_BUCKET: "zhian_fujian"
+      NODE_ENV: "production"
+      COOKIE_SECU: "false"
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:17
+    container_name: zhian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "Asd@199312"
+      POSTGRES_DB: "postgres"
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: zhian-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  db_data:
+  minio_data:

@@ -1,0 +1,136 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  users     User[]
+  tasks     TaskDepartment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id                 Int          @id @default(autoincrement())
+  name               String
+  badgeNo            String       @unique
+  passwordHash       String
+  isInitialPassword  Boolean      @default(true)
+  role               Role         @default(USER)
+  departmentId       Int?
+  department         Department?  @relation(fields: [departmentId], references: [id])
+  tasksResponsible   Task[]       @relation("TaskResponsibleUsers")
+  taskMemberships    TaskMember[]
+  comments           Comment[]
+  taskStatusHistories TaskStatusHistory[]
+  tasksCreated       Task[]       @relation("TaskCreator")
+  attachments        Attachment[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+enum TaskStatus {
+  IN_PROGRESS
+  UNDER_REVIEW
+  COMPLETED
+  REVISION
+}
+
+enum MemberStatus {
+  PENDING
+  SUBMITTED
+}
+
+model Task {
+  id           Int                @id @default(autoincrement())
+  title        String
+  description  String
+  status       TaskStatus         @default(IN_PROGRESS)
+  dueDate      DateTime?
+  creatorId    Int
+  creator      User               @relation("TaskCreator", fields: [creatorId], references: [id])
+  responsible  User[]             @relation("TaskResponsibleUsers")
+  members      TaskMember[]
+  departments  TaskDepartment[]
+  attachments  Attachment[]
+  comments     Comment[]
+  histories    TaskStatusHistory[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model TaskDepartment {
+  taskId       Int
+  departmentId Int
+  task         Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, departmentId])
+}
+
+model TaskMember {
+  id         Int          @id @default(autoincrement())
+  taskId     Int
+  userId     Int
+  status     MemberStatus @default(PENDING)
+  task       Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([taskId, userId])
+}
+
+model Attachment {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  uploaderId  Int
+  filename    String
+  objectKey   String
+  createdAt   DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  authorId  Int
+  content   String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model TaskStatusHistory {
+  id          Int        @id @default(autoincrement())
+  taskId      Int
+  operatorId  Int
+  fromStatus  TaskStatus?
+  toStatus    TaskStatus
+  operation   String
+  remark      String?
+  createdAt   DateTime   @default(now())
+  task        Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  operator    User       @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+}

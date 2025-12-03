@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init)",
+      "Bash(git remote add origin https://github.com/mifengac/renwuguanli_zhian.git)",
+      "Bash(git add .)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n初始化治安任务管理系统项目\n\n- 添加 Next.js + TypeScript 项目基础结构\n- 集成 Prisma ORM 和 PostgreSQL\n- 实现 JWT 认证和授权系统\n- 添加任务管理、用户管理、部门管理等核心功能\n- 集成 MinIO 文件存储\n- 添加 Tailwind CSS 样式\n- 创建完整的 README.md 文档\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push -u origin master)",
+      "Bash(git config --list)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(NO_PROXY=github.com,githubusercontent.com HTTP_PROXY=\"\" HTTPS_PROXY=\"\" git push -u origin master)",
+      "Bash(docker exec:*)",
+      "Bash(node -e:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(echo:*)",
+      "Bash(NO_PROXY=github.com,githubusercontent.com HTTP_PROXY=\"\" HTTPS_PROXY=\"\" git push)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
