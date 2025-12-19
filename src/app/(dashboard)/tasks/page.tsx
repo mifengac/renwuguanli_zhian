@@ -30,12 +30,19 @@ type UserOption = {
   id: number;
   name: string;
   badgeNo: string;
+  departmentId: number | null;
   departmentName: string | null;
+};
+
+type DepartmentOption = {
+  id: number;
+  name: string;
 };
 
 type MultiSelectProps = {
   label: string;
   options: UserOption[];
+  departments: DepartmentOption[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
   placeholder?: string;
@@ -44,19 +51,55 @@ type MultiSelectProps = {
 function MultiSelect({
   label,
   options,
+  departments,
   selectedIds,
   onChange,
   placeholder,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [expandedDeptIds, setExpandedDeptIds] = useState<number[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const filtered = options.filter((u) => {
-    const keyword = search.trim();
+  useEffect(() => {
+    if (open) setExpandedDeptIds([]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleMouseDown(ev: MouseEvent) {
+      const el = containerRef.current;
+      if (!el) return;
+      if (ev.target instanceof Node && !el.contains(ev.target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(ev: KeyboardEvent) {
+      if (ev.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  function toggleDepartmentExpanded(id: number) {
+    setExpandedDeptIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function userMatchesSearch(u: UserOption, keywordRaw: string) {
+    const keyword = keywordRaw.trim();
     if (!keyword) return true;
     const text = `${u.name}${u.badgeNo}${u.departmentName ?? ""}`;
     return text.toLowerCase().includes(keyword.toLowerCase());
-  });
+  }
 
   function toggle(id: number) {
     if (selectedIds.includes(id)) {
@@ -74,7 +117,7 @@ function MultiSelect({
   return (
     <div className="space-y-1 text-xs">
       <span className="block text-[11px] mb-1 text-slate-600">{label}</span>
-      <div className="relative">
+      <div className="relative" ref={containerRef}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -92,38 +135,89 @@ function MultiSelect({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <p className="mt-1 text-[10px] text-slate-400">
+                先展开大队（+）再勾选人员
+              </p>
             </div>
-            <div className="max-h-44 overflow-auto p-2 space-y-1">
-              {filtered.length === 0 ? (
-                <p className="text-[11px] text-slate-400">无匹配结果</p>
-              ) : (
-                filtered.map((u) => (
-                  <label
-                    key={u.id}
-                    className="flex items-center gap-2 text-[11px] text-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={selectedIds.includes(u.id)}
-                      onChange={() => toggle(u.id)}
-                    />
-                    <span className="truncate">
-                      {u.name}（{u.badgeNo}
-                      {u.departmentName ? ` / ${u.departmentName}` : ""}）
-                    </span>
-                  </label>
-                ))
+
+            <div className="max-h-56 overflow-auto p-2 space-y-2">
+              {(
+                departments.length
+                  ? [...departments, { id: -1, name: "未分配部门" }]
+                  : Array.from(
+                      new Map(
+                        options
+                          .filter((u) => u.departmentId != null)
+                          .map((u) => [u.departmentId as number, u.departmentName ?? "未命名部门"])
+                      ),
+                      ([id, name]) => ({ id, name })
+                    ).concat({ id: -1, name: "未分配部门" })
+              ).map((dept) => {
+                  const deptUsers =
+                    dept.id === -1
+                      ? options.filter((u) => u.departmentId == null)
+                      : options.filter((u) => u.departmentId === dept.id);
+
+                  const visibleUsers = deptUsers.filter((u) =>
+                    userMatchesSearch(u, search)
+                  );
+
+                  const expanded = dept.id !== -1 && expandedDeptIds.includes(dept.id);
+                  const canExpand = dept.id !== -1;
+                  const showUsers = search.trim() ? true : expanded;
+
+                  return (
+                    <div key={dept.id} className="space-y-1">
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 text-left px-2 py-1 rounded hover:bg-slate-50"
+                        onClick={() => {
+                          if (canExpand) toggleDepartmentExpanded(dept.id);
+                        }}
+                      >
+                        <span className="w-4 text-slate-500 font-mono">
+                          {canExpand ? (expanded ? "-" : "+") : "•"}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-700 truncate">
+                          {dept.name}
+                        </span>
+                        <span className="ml-auto text-[10px] text-slate-400">
+                          {deptUsers.length}
+                        </span>
+                      </button>
+
+                      {showUsers && (
+                        <div className="pl-6 space-y-1">
+                          {visibleUsers.length === 0 ? (
+                            <p className="text-[11px] text-slate-400">
+                              {deptUsers.length === 0
+                                ? "该大队暂无人员"
+                                : "无匹配结果"}
+                            </p>
+                          ) : (
+                            visibleUsers.map((u) => (
+                              <label
+                                key={u.id}
+                                className="flex items-center gap-2 text-[11px] text-slate-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-3 w-3"
+                                  checked={selectedIds.includes(u.id)}
+                                  onChange={() => toggle(u.id)}
+                                />
+                                <span className="truncate">
+                                  {u.name}（{u.badgeNo}）
+                                </span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
               )}
-            </div>
-            <div className="px-2 py-1 border-t border-slate-100 text-right">
-              <button
-                type="button"
-                className="text-[11px] text-sky-600 hover:text-sky-500"
-                onClick={() => setOpen(false)}
-              >
-                关闭
-              </button>
             </div>
           </div>
         )}
@@ -328,6 +422,7 @@ export default function TasksPage() {
           id: u.id,
           name: u.name,
           badgeNo: u.badgeNo,
+          departmentId: u.department?.id ?? null,
           departmentName: u.department?.name ?? null,
         }));
         setUsers(list);
@@ -604,6 +699,7 @@ export default function TasksPage() {
                     <MultiSelect
                       label="负责人（可多选）"
                       options={users}
+                      departments={departments}
                       selectedIds={newResponsibleIds}
                       onChange={setNewResponsibleIds}
                       placeholder="请选择负责人"
@@ -617,6 +713,7 @@ export default function TasksPage() {
                     <MultiSelect
                       label="成员（可多选）"
                       options={users}
+                      departments={departments}
                       selectedIds={newMemberIds}
                       onChange={setNewMemberIds}
                       placeholder="请选择成员"

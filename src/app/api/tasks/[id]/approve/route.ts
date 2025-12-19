@@ -39,8 +39,12 @@ export async function POST(
   }
 
   const isResponsible = task.responsible.some((u) => u.id === auth.userId);
-  if (!isResponsible) {
-    return NextResponse.json({ message: "只有任务负责人可以执行此操作" }, { status: 403 });
+  const canApprove = isResponsible || auth.role === "SUPER_ADMIN";
+  if (!canApprove) {
+    return NextResponse.json(
+      { message: "只有任务负责人或超级管理员可以执行此操作" },
+      { status: 403 }
+    );
   }
 
   await prisma.task.update({

@@ -127,6 +127,9 @@ export default function TaskDetailPage() {
   const isAdminLike =
     currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
 
+  const canApprove =
+    isResponsible || currentUser?.role === "SUPER_ADMIN";
+
   const canEdit = isResponsible || isAdminLike;
 
   async function handleMemberSubmit() {
@@ -394,7 +397,7 @@ export default function TaskDetailPage() {
                 : "成员提交"}
             </button>
           )}
-          {isResponsible && task.status !== "COMPLETED" && (
+          {canApprove && task.status !== "COMPLETED" && (
             <div className="flex gap-2">
               <button
                 type="button"
@@ -404,14 +407,16 @@ export default function TaskDetailPage() {
               >
                 {approving ? "通过中..." : "通过"}
               </button>
-              <button
-                type="button"
-                disabled={requestingChange || task.status === "COMPLETED"}
-                onClick={handleRequestChange}
-                className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs hover:bg-amber-600 disabled:opacity-60"
-              >
-                {requestingChange ? "退回中..." : "修改"}
-              </button>
+              {isResponsible && (
+                <button
+                  type="button"
+                  disabled={requestingChange || task.status === "COMPLETED"}
+                  onClick={handleRequestChange}
+                  className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs hover:bg-amber-600 disabled:opacity-60"
+                >
+                  {requestingChange ? "退回中..." : "修改"}
+                </button>
+              )}
             </div>
           )}
           {canEdit && (
@@ -436,6 +441,14 @@ export default function TaskDetailPage() {
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-police-400 focus:border-police-400"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] text-slate-500">内容</label>
+              <textarea
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 min-h-[140px] whitespace-pre-wrap focus:outline-none focus:ring-1 focus:ring-police-400 focus:border-police-400"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
               />
             </div>
             <div className="space-y-1">

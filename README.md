@@ -101,41 +101,43 @@ cd renwuguanli_zhian
 
 2. 安装依赖
 ```bash
-npm install
+npm ci
 ```
 
 3. 配置环境变量
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-编辑 `.env` 文件：
+编辑 `.env.local` 文件：
 ```env
-# 数据库连接
-DATABASE_URL="postgresql://username:password@localhost:5432/renwuguanli?schema=public"
+# 数据库连接（注意：密码里有特殊字符（如 @）时需要 URL 编码，例如 @ -> %40）
+# 示例：docker-compose-offline.yml 默认密码 Asd@199312 -> Asd%40199312
+DATABASE_URL="postgresql://postgres:Asd%40199312@localhost:5432/postgres?schema=public"
 
 # JWT 密钥
 JWT_SECRET=somesupersecretkeyforjwt
 
-# MinIO 配置（可选）
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
+# MinIO 配置（可选，使用 docker-compose-offline.yml 启动 minio 时）
+MINIO_ENDPOINT=http://localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=task-attachments
+MINIO_BUCKET=zhian_fujian
 MINIO_USE_SSL=false
+
+# Cookie secure（本地 http 访问建议 false）
+COOKIE_SECU=false
 ```
 
 4. 初始化数据库
 ```bash
-# 生成 Prisma 客户端
+# 生成 Prisma 客户端（也会在 npm install/ci 后自动生成）
 npm run prisma:generate
 
-# 创建数据库表
-npx prisma migrate dev --name init
-
-# （可选）导入初始数据
-npx prisma db seed
+# 初始化表结构（二选一）
+# 方式 A：通过 Prisma 同步 schema（推荐本地开发）
+npx prisma db push
+# 方式 B：直接执行 SQL（prisma/init.sql）
 ```
 
 5. 创建超级管理员（如果未运行 seed）
@@ -144,6 +146,9 @@ npx prisma db seed
 curl -X POST http://localhost:3000/api/users/seed-super-admin \
   -H "Content-Type: application/json" \
   -d '{"badgeNo":"270378","password":"admin123"}'
+
+# 或者用 GET（方便浏览器直接访问）
+# http://localhost:3000/api/users/seed-super-admin
 ```
 
 ### 开发模式
@@ -212,11 +217,11 @@ npm start
 
 #### POST /api/tasks/:id/approve
 审批通过任务
-- 需要 ADMIN 或 SUPER_ADMIN 权限
+- 任务负责人或 SUPER_ADMIN
 
 #### POST /api/tasks/:id/request-change
 请求修改任务
-- 需要 ADMIN 或 SUPER_ADMIN 权限
+- 仅任务负责人
 
 #### POST /api/tasks/:id/member-submit
 成员提交任务
@@ -242,7 +247,7 @@ npm start
 
 #### GET /api/users
 获取用户列表
-- 需要 ADMIN 或 SUPER_ADMIN 权限
+- 需要认证
 
 #### POST /api/users
 创建用户
@@ -312,6 +317,14 @@ docker-compose down
 - 首次启动时，数据库会自动初始化。
 - 请确保 `.env` 文件中的配置与 `docker-compose.yml` 中的环境变量保持一致，或者直接使用 `docker-compose.yml` 中定义的默认值进行测试。
 - 如果需要离线部署，可以使用 `docker-compose-offline.yml`。
+
+## 本地开发（只启动 Postgres + MinIO）
+
+```bash
+docker compose -f docker-compose-offline.yml up -d db minio
+```
+
+然后按 `.env.example` 配好本地的 `DATABASE_URL`（如果密码里包含 `@` 之类特殊字符，要做 URL 编码，例如 `@ -> %40`）。
 
 ## 开发规范
 
