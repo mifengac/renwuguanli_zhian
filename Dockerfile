@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # 使用 npm ci 确保与锁文件一致
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # 复制其余源码（已通过 .dockerignore 排除本地 node_modules/.next 等）
 COPY . .
@@ -33,7 +33,7 @@ ENV NODE_ENV=production
 
 # 仅安装生产依赖，减小镜像体积
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # 复制构建产物和必要配置
 COPY --from=builder /app/.next ./.next
