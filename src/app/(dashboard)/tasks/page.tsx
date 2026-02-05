@@ -274,6 +274,22 @@ export default function TasksPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number | "ALL">(10);
+
+  const pageSizeOptions: (number | "ALL")[] = [10, 20, 50, "ALL"];
+
+  // Calculate paginated tasks
+  const paginatedTasks = (() => {
+    if (pageSize === "ALL") return tasks;
+    const start = (page - 1) * pageSize;
+    return tasks.slice(start, start + pageSize);
+  })();
+
+  const totalPages = pageSize === "ALL" ? 1 : Math.ceil(tasks.length / (pageSize as number));
+  const totalCount = tasks.length;
+
   function isOverdue(task: Task) {
     if (!task.dueDate) return false;
     const due = new Date(task.dueDate);
@@ -391,6 +407,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     setTasks(filterTasks(active, allTasks, activeDeptId));
+    setPage(1); // Reset to first page when filter changes
   }, [active, allTasks, searchKeyword, activeDeptId]);
 
   useEffect(() => {
@@ -1035,7 +1052,7 @@ export default function TasksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {tasks.map((task) => (
+                {paginatedTasks.map((task) => (
                   <tr
                     key={task.id}
                     className="hover:bg-blue-50/50 transition-colors"
@@ -1102,6 +1119,73 @@ export default function TasksPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* 分页控件 */}
+        {!loading && !error && tasks.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <span>每页显示：</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const value = e.target.value === "ALL" ? "ALL" : Number(e.target.value);
+                  setPageSize(value);
+                  setPage(1);
+                }}
+                className="rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+              >
+                {pageSizeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt === "ALL" ? "全部" : `${opt}条`}
+                  </option>
+                ))}
+              </select>
+              <span className="ml-2">
+                共 <span className="font-semibold text-slate-800">{totalCount}</span> 条记录
+              </span>
+            </div>
+
+            {pageSize !== "ALL" && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  首页
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  上一页
+                </button>
+                <span className="text-xs text-slate-600 px-2">
+                  <span className="font-semibold text-blue-600">{page}</span> / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  下一页
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  末页
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>

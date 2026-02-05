@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
   const rows = tasks.map((t) => ({
     任务ID: t.id,
     标题: t.title,
+    任务内容: t.description,
     状态:
       t.status === "IN_PROGRESS"
         ? "进行中"
