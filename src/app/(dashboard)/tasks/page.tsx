@@ -14,6 +14,8 @@ const tabs = [
   { key: "OVERDUE", label: "超期" },
 ];
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+
 type Task = {
   id: number;
   title: string;
@@ -272,7 +274,11 @@ export default function TasksPage() {
   const [showExport, setShowExport] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [pageSize, setPageSize] = useState<number | "ALL">(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importMenuRef = useRef<HTMLDivElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   function isOverdue(task: Task) {
     if (!task.dueDate) return false;
@@ -392,6 +398,39 @@ export default function TasksPage() {
   useEffect(() => {
     setTasks(filterTasks(active, allTasks, activeDeptId));
   }, [active, allTasks, searchKeyword, activeDeptId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [active, searchKeyword, activeDeptId]);
+
+  useEffect(() => {
+    function handleMouseDown(ev: MouseEvent) {
+      const target = ev.target;
+      if (!(target instanceof Node)) return;
+
+      if (showImport && importMenuRef.current && !importMenuRef.current.contains(target)) {
+        setShowImport(false);
+      }
+
+      if (showExport && exportMenuRef.current && !exportMenuRef.current.contains(target)) {
+        setShowExport(false);
+      }
+    }
+
+    function handleKeyDown(ev: KeyboardEvent) {
+      if (ev.key === "Escape") {
+        setShowImport(false);
+        setShowExport(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showImport, showExport]);
 
   useEffect(() => {
     async function loadMe() {
@@ -610,6 +649,25 @@ export default function TasksPage() {
     };
     reader.readAsBinaryString(file);
   }
+
+  const totalTasks = tasks.length;
+  const totalPages =
+    pageSize === "ALL" ? (totalTasks > 0 ? 1 : 0) : Math.ceil(totalTasks / pageSize);
+  const safeCurrentPage =
+    totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
+  const startIndex =
+    pageSize === "ALL" ? 0 : (safeCurrentPage - 1) * pageSize;
+  const endIndex =
+    pageSize === "ALL" ? totalTasks : Math.min(startIndex + pageSize, totalTasks);
+  const visibleTasks =
+    pageSize === "ALL" ? tasks : tasks.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    const normalizedMaxPage = Math.max(totalPages, 1);
+    if (currentPage > normalizedMaxPage) {
+      setCurrentPage(normalizedMaxPage);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="w-full space-y-3 text-slate-900">
@@ -874,12 +932,15 @@ export default function TasksPage() {
           {/* 导入导出按钮组 */}
           <div className="flex items-center gap-1">
              <div
+              ref={importMenuRef}
               className="relative"
-              onMouseEnter={() => setShowImport(true)}
-              onMouseLeave={() => setShowImport(false)}
             >
               <button
                 type="button"
+                onClick={() => {
+                  setShowImport((prev) => !prev);
+                  setShowExport(false);
+                }}
                 className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
                 导入
@@ -906,12 +967,15 @@ export default function TasksPage() {
             </div>
 
             <div
+              ref={exportMenuRef}
               className="relative"
-              onMouseEnter={() => setShowExport(true)}
-              onMouseLeave={() => setShowExport(false)}
             >
               <button
                 type="button"
+                onClick={() => {
+                  setShowExport((prev) => !prev);
+                  setShowImport(false);
+                }}
                 className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
                 导出
@@ -1035,7 +1099,7 @@ export default function TasksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {tasks.map((task) => (
+                {visibleTasks.map((task) => (
                   <tr
                     key={task.id}
                     className="hover:bg-blue-50/50 transition-colors"
@@ -1102,6 +1166,53 @@ export default function TasksPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && !error && tasks.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <span>每页</span>
+              <select
+                value={String(pageSize)}
+                onChange={(e) => {
+                  const next = e.target.value === "ALL" ? "ALL" : Number(e.target.value);
+                  setPageSize(next);
+                  setCurrentPage(1);
+                }}
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+                <option value="ALL">全部</option>
+              </select>
+              <span>
+                {startIndex + 1}-{endIndex} / {totalTasks}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={pageSize === "ALL" || safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                上一页
+              </button>
+              <span>
+                第 {safeCurrentPage} / {Math.max(totalPages, 1)} 页
+              </span>
+              <button
+                type="button"
+                disabled={pageSize === "ALL" || safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(Math.max(totalPages, 1), p + 1))}
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                下一页
+              </button>
+            </div>
           </div>
         )}
       </section>
