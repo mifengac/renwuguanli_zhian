@@ -16,35 +16,120 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
+  const keyword = searchParams.get("keyword")?.trim() ?? "";
+  const departmentIdRaw = searchParams.get("departmentId");
+  const pageRaw = searchParams.get("page");
+  const pageSizeRaw = searchParams.get("pageSize");
+
+  const page = Number.isInteger(Number(pageRaw)) && Number(pageRaw) > 0 ? Number(pageRaw) : 1;
+  const requestedPageSize =
+    Number.isInteger(Number(pageSizeRaw)) && Number(pageSizeRaw) > 0 ? Number(pageSizeRaw) : 10;
+  const pageSize = Math.min(requestedPageSize, 100);
 
   const where: any = {};
+  const now = new Date();
 
-  if (status === "IN_PROGRESS" || status === "UNDER_REVIEW" || status === "COMPLETED" || status === "REVISION") {
+  if (
+    status === "IN_PROGRESS" ||
+    status === "UNDER_REVIEW" ||
+    status === "COMPLETED" ||
+    status === "REVISION"
+  ) {
     where.status = status;
   }
 
   if (status === "OVERDUE") {
-    where.AND = [
-      { dueDate: { lt: new Date() } },
-      { status: { not: "COMPLETED" } },
-    ];
+    where.AND = [{ dueDate: { lt: now } }, { status: { not: "COMPLETED" } }];
   }
 
-  const tasks = await prisma.task.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: {
-      departments: {
-        include: { department: true },
-      },
-      responsible: true,
-      members: {
-        include: { user: true },
-      },
-    },
-  });
+  if (keyword) {
+    where.title = {
+      contains: keyword,
+      mode: "insensitive",
+    };
+  }
 
-  return NextResponse.json({ tasks });
+  if (departmentIdRaw) {
+    const departmentId = Number(departmentIdRaw);
+    if (Number.isInteger(departmentId) && departmentId > 0) {
+      where.departments = {
+        some: {
+          departmentId,
+        },
+      };
+    }
+  }
+
+  const skip = (page - 1) * pageSize;
+
+  const [
+    tasks,
+    total,
+    totalAll,
+    totalInProgress,
+    totalUnderReview,
+    totalRevision,
+    totalCompleted,
+    totalOverdue,
+    deptRows,
+  ] = await prisma.$transaction([
+    prisma.task.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+      include: {
+        departments: {
+          include: { department: true },
+        },
+        responsible: true,
+        members: {
+          include: { user: true },
+        },
+      },
+    }),
+    prisma.task.count({ where }),
+    prisma.task.count(),
+    prisma.task.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.task.count({ where: { status: "UNDER_REVIEW" } }),
+    prisma.task.count({ where: { status: "REVISION" } }),
+    prisma.task.count({ where: { status: "COMPLETED" } }),
+    prisma.task.count({
+      where: {
+        AND: [{ dueDate: { lt: now } }, { status: { not: "COMPLETED" } }],
+      },
+    }),
+    prisma.taskDepartment.findMany({
+      select: {
+        departmentId: true,
+      },
+    }),
+  ]);
+
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  const deptCounts = deptRows.reduce<Record<number, number>>((acc, row) => {
+    acc[row.departmentId] = (acc[row.departmentId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return NextResponse.json({
+    tasks,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+    },
+    stats: {
+      ALL: totalAll,
+      IN_PROGRESS: totalInProgress,
+      UNDER_REVIEW: totalUnderReview,
+      REVISION: totalRevision,
+      COMPLETED: totalCompleted,
+      OVERDUE: totalOverdue,
+    },
+    deptCounts,
+  });
 }
 
 export async function POST(req: NextRequest) {

@@ -230,8 +230,9 @@ function MultiSelect({
 
 export default function TasksPage() {
   const [active, setActive] = useState<string>("ALL");
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [stats, setStats] = useState<{
     ALL: number;
     IN_PROGRESS: number;
@@ -274,7 +275,7 @@ export default function TasksPage() {
   const [showExport, setShowExport] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [pageSize, setPageSize] = useState<number | "ALL">(10);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importMenuRef = useRef<HTMLDivElement | null>(null);
@@ -286,55 +287,28 @@ export default function TasksPage() {
     return due.getTime() < Date.now() && task.status !== "COMPLETED";
   }
 
-  function filterTasks(statusKey: string, list: Task[], deptId: number | null): Task[] {
-    let filtered = list;
-    
-    // Filter by Status
-    if (statusKey === "ALL") {
-      filtered = list;
-    } else if (statusKey === "OVERDUE") {
-      filtered = list.filter((t) => isOverdue(t));
-    } else if (statusKey === "UNDER_REVIEW") {
-      if (currentUser) {
-        filtered = list.filter(
-          (t) =>
-            t.status === "UNDER_REVIEW" &&
-            t.responsibleIds.includes(currentUser.id)
-        );
-      } else {
-        filtered = [];
-      }
-    } else {
-      filtered = list.filter((t) => t.status === statusKey);
-    }
-
-    // Filter by Department
-    if (deptId !== null) {
-      filtered = filtered.filter((t) => t.departmentIds.includes(deptId));
-    }
-
-    // Filter by Search Keyword
-    const kw = searchKeyword.trim().toLowerCase();
-    if (kw) {
-      filtered = filtered.filter((t) =>
-        t.title.toLowerCase().includes(kw)
-      );
-    }
-
-    return filtered;
-  }
-
-  async function loadAllTasks() {
+  async function loadTasks() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tasks`);
+      const params = new URLSearchParams();
+      params.set("page", String(currentPage));
+      params.set("pageSize", String(pageSize));
+      if (active !== "ALL") params.set("status", active);
+      const keyword = searchKeyword.trim();
+      if (keyword) params.set("keyword", keyword);
+      if (activeDeptId !== null) params.set("departmentId", String(activeDeptId));
+
+      const res = await fetch("/api/tasks?" + params.toString());
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.message || "加载失败");
         setTasks([]);
+        setTotalTasks(0);
+        setTotalPages(0);
         return;
       }
+
       const data = await res.json();
       const list: Task[] = (data.tasks || []).map((t: any) => ({
         id: t.id,
@@ -344,64 +318,43 @@ export default function TasksPage() {
         departmentNames: (t.departments || [])
           .map((d: any) => d.department?.name)
           .filter((n: string | null | undefined) => !!n)
-          .join("、"),
+          .join(", "),
         departmentIds: (t.departments || []).map((d: any) => d.departmentId),
-        responsibleNames: (t.responsible || [])
-          .map((u: any) => u.name)
-          .join("、"),
-        memberNames: (t.members || [])
-          .map((m: any) => m.user?.name)
-          .join("、"),
+        responsibleNames: (t.responsible || []).map((u: any) => u.name).join(", "),
+        memberNames: (t.members || []).map((m: any) => m.user?.name).join(", "),
         responsibleIds: (t.responsible || []).map((u: any) => u.id),
       }));
-      setAllTasks(list);
 
-      // Stats calculation
-      const nextStats = {
-        ALL: list.length,
-        IN_PROGRESS: 0,
-        UNDER_REVIEW: 0,
-        REVISION: 0,
-        COMPLETED: 0,
-        OVERDUE: 0,
-      };
-      
-      // Department counts calculation
-      const counts: Record<number, number> = {};
-      
-      list.forEach((t) => {
-        if (t.status === "IN_PROGRESS") nextStats.IN_PROGRESS += 1;
-        if (t.status === "UNDER_REVIEW") nextStats.UNDER_REVIEW += 1;
-        if (t.status === "REVISION") nextStats.REVISION += 1;
-        if (t.status === "COMPLETED") nextStats.COMPLETED += 1;
-        if (isOverdue(t)) nextStats.OVERDUE += 1;
+      const pagination = data.pagination ?? {};
+      setTasks(list);
+      setTotalTasks(Number(pagination.total) || 0);
+      setTotalPages(Number(pagination.totalPages) || 0);
 
-        t.departmentIds.forEach(did => {
-          counts[did] = (counts[did] || 0) + 1;
+      if (data.stats) {
+        setStats({
+          ALL: Number(data.stats.ALL) || 0,
+          IN_PROGRESS: Number(data.stats.IN_PROGRESS) || 0,
+          UNDER_REVIEW: Number(data.stats.UNDER_REVIEW) || 0,
+          REVISION: Number(data.stats.REVISION) || 0,
+          COMPLETED: Number(data.stats.COMPLETED) || 0,
+          OVERDUE: Number(data.stats.OVERDUE) || 0,
         });
-      });
-      
-      setStats(nextStats);
-      setDeptCounts(counts);
-      setTasks(filterTasks(active, list, activeDeptId));
+      }
+
+      setDeptCounts(data.deptCounts || {});
     } catch {
       setError("网络错误");
+      setTasks([]);
+      setTotalTasks(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadAllTasks();
-  }, []);
-
-  useEffect(() => {
-    setTasks(filterTasks(active, allTasks, activeDeptId));
-  }, [active, allTasks, searchKeyword, activeDeptId]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [active, searchKeyword, activeDeptId]);
+    loadTasks();
+  }, [active, searchKeyword, activeDeptId, pageSize, currentPage]);
 
   useEffect(() => {
     function handleMouseDown(ev: MouseEvent) {
@@ -526,7 +479,7 @@ export default function TasksPage() {
         return;
       }
       
-      await loadAllTasks();
+      await loadTasks();
       setShowCreate(false);
       setNewTitle("");
       setNewDescription("");
@@ -573,7 +526,7 @@ export default function TasksPage() {
         alert(data.message || "删除任务失败");
         return;
       }
-      await loadAllTasks();
+      await loadTasks();
     } catch {
       alert("网络错误，删除任务失败");
     }
@@ -636,7 +589,7 @@ export default function TasksPage() {
           } else {
             alert(`成功导入 ${result.success} 条任务！`);
           }
-          loadAllTasks();
+          loadTasks();
         } else {
           alert(result.message || "导入失败");
         }
@@ -650,17 +603,10 @@ export default function TasksPage() {
     reader.readAsBinaryString(file);
   }
 
-  const totalTasks = tasks.length;
-  const totalPages =
-    pageSize === "ALL" ? (totalTasks > 0 ? 1 : 0) : Math.ceil(totalTasks / pageSize);
   const safeCurrentPage =
     totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
-  const startIndex =
-    pageSize === "ALL" ? 0 : (safeCurrentPage - 1) * pageSize;
-  const endIndex =
-    pageSize === "ALL" ? totalTasks : Math.min(startIndex + pageSize, totalTasks);
-  const visibleTasks =
-    pageSize === "ALL" ? tasks : tasks.slice(startIndex, endIndex);
+  const startIndex = totalTasks === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const endIndex = totalTasks === 0 ? 0 : Math.min(safeCurrentPage * pageSize, totalTasks);
 
   useEffect(() => {
     const normalizedMaxPage = Math.max(totalPages, 1);
@@ -883,7 +829,10 @@ export default function TasksPage() {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActive(tab.key)}
+              onClick={() => {
+                setActive(tab.key);
+                setCurrentPage(1);
+              }}
               // 移除 left bar，直接使用卡片的背景色作为指示
               className={`h-16 w-full rounded border text-sm flex flex-col items-center justify-center transition-all duration-200 ${cardClasses}`}
             >
@@ -894,12 +843,7 @@ export default function TasksPage() {
                   : tab.key === "IN_PROGRESS"
                   ? stats.IN_PROGRESS
                   : tab.key === "UNDER_REVIEW"
-                  ? allTasks.filter(
-                      (t) =>
-                        t.status === "UNDER_REVIEW" &&
-                        currentUser &&
-                        t.responsibleIds.includes(currentUser.id)
-                    ).length
+                  ? stats.UNDER_REVIEW
                   : tab.key === "REVISION"
                   ? stats.REVISION
                   : tab.key === "COMPLETED"
@@ -1022,7 +966,10 @@ export default function TasksPage() {
               type="text"
               placeholder="输入任务名称搜索..."
               value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
+              onChange={(e) => {
+                setSearchKeyword(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -1039,7 +986,10 @@ export default function TasksPage() {
       {departments.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-1">
            <button
-              onClick={() => setActiveDeptId(null)}
+              onClick={() => {
+                setActiveDeptId(null);
+                setCurrentPage(1);
+              }}
               className={`px-2.5 py-1 rounded-sm text-xs border transition-colors ${activeDeptId === null
                   ? "bg-slate-700 border-slate-700 text-white font-medium"
                   : "bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
@@ -1050,7 +1000,10 @@ export default function TasksPage() {
           {departments.map(dept => (
             <button
               key={dept.id}
-              onClick={() => setActiveDeptId(dept.id === activeDeptId ? null : dept.id)}
+              onClick={() => {
+                setActiveDeptId(dept.id === activeDeptId ? null : dept.id);
+                setCurrentPage(1);
+              }}
               className={`px-2.5 py-1 rounded-sm text-xs border transition-colors flex items-center gap-1 ${activeDeptId === dept.id
                   ? "bg-blue-600 border-blue-600 text-white font-medium"
                   : "bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
@@ -1099,7 +1052,7 @@ export default function TasksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {visibleTasks.map((task) => (
+                {tasks.map((task) => (
                   <tr
                     key={task.id}
                     className="hover:bg-blue-50/50 transition-colors"
@@ -1175,7 +1128,7 @@ export default function TasksPage() {
               <select
                 value={String(pageSize)}
                 onChange={(e) => {
-                  const next = e.target.value === "ALL" ? "ALL" : Number(e.target.value);
+                  const next = Number(e.target.value);
                   setPageSize(next);
                   setCurrentPage(1);
                 }}
@@ -1186,16 +1139,15 @@ export default function TasksPage() {
                     {size}
                   </option>
                 ))}
-                <option value="ALL">全部</option>
               </select>
               <span>
-                {startIndex + 1}-{endIndex} / {totalTasks}
+                {startIndex}-{endIndex} / {totalTasks}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                disabled={pageSize === "ALL" || safeCurrentPage <= 1}
+                disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1206,7 +1158,7 @@ export default function TasksPage() {
               </span>
               <button
                 type="button"
-                disabled={pageSize === "ALL" || safeCurrentPage >= totalPages}
+                disabled={safeCurrentPage >= totalPages || totalPages === 0}
                 onClick={() => setCurrentPage((p) => Math.min(Math.max(totalPages, 1), p + 1))}
                 className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >

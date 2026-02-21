@@ -194,10 +194,10 @@ npm start
 ### 任务管理
 
 #### GET /api/tasks
-获取任务列表（分页）
-- 查询参数: page, pageSize, status
+获取任务列表（服务端分页）
+- 查询参数: `page`, `pageSize`, `status`, `keyword`, `departmentId`
+- 返回: `tasks`, `pagination` (`page/pageSize/total/totalPages`), `stats`, `deptCounts`
 - 需要认证
-
 #### POST /api/tasks
 创建新任务
 - 请求体: 任务数据
