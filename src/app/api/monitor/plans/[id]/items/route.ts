@@ -104,6 +104,7 @@ export async function POST(
           itemCode: payload.itemCode,
           itemName: payload.itemName,
           itemCategory: payload.itemCategory,
+          status: "ACTIVE",
           cycleType: payload.cycleType,
           cycleConf: payload.cycleConf,
           dueTime: payload.dueTime,

@@ -49,6 +49,7 @@ export type MonitorItemRow = {
   itemCode: string;
   itemName: string;
   itemCategory: string | null;
+  status: "ACTIVE" | "COMPLETED";
   cycleType: "ONCE" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "CUSTOM";
   cycleConf: Record<string, unknown> | null;
   dueTime: string;

@@ -30,6 +30,14 @@ export function canCompleteMonitorInstance(
   return canManageMonitorConfig(user, ownerDeptId);
 }
 
+export function canCompleteMonitorItem(
+  user: CurrentUser | null,
+  ownerDeptId: number,
+  ownerUserIds: number[]
+): boolean {
+  return canCompleteMonitorInstance(user, ownerDeptId, ownerUserIds);
+}
+
 export async function authorizeMonitorJobRequest(req: NextRequest): Promise<{
   actor: CurrentUser | null;
   byToken: boolean;

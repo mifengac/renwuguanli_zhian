@@ -1,0 +1,73 @@
+
+> zhian-renwuguanli@1.0.0 dev
+> next dev
+
+  â–² Next.js 14.2.33
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ âœ“ Starting...
+ âœ“ Ready in 2.5s
+ âœ“ Compiled /src/middleware in 222ms (72 modules)
+ â—‹ Compiling /login ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ âœ“ Compiled /login in 1257ms (461 modules)
+ GET /login 200 in 1361ms
+ âœ“ Compiled /api/users/seed-super-admin in 185ms (68 modules)
+ POST /api/users/seed-super-admin 200 in 336ms
+ âœ“ Compiled /api/auth/login in 161ms (149 modules)
+ POST /api/auth/login 200 in 243ms
+ âœ“ Compiled /api/monitor/options in 45ms (152 modules)
+ GET /api/monitor/options 200 in 94ms
+ âœ“ Compiled /api/monitor/plans in 56ms (159 modules)
+ POST /api/monitor/plans 200 in 85ms
+ âœ“ Compiled /api/monitor/plans/[id]/items in 45ms (161 modules)
+ POST /api/monitor/plans/1/items 200 in 284ms
+ âœ“ Compiled /api/monitor/items/[id]/users in 44ms (163 modules)
+ PUT /api/monitor/items/1/users 200 in 354ms
+ âœ“ Compiled /api/monitor/items/[id]/rules in 63ms (165 modules)
+ POST /api/monitor/items/1/rules 200 in 357ms
+ POST /api/monitor/plans/1/items 200 in 22ms
+ PUT /api/monitor/items/2/users 200 in 34ms
+ POST /api/monitor/items/2/rules 200 in 20ms
+ POST /api/monitor/plans/1/items 200 in 17ms
+ PUT /api/monitor/items/3/users 200 in 21ms
+ POST /api/monitor/items/3/rules 200 in 17ms
+ âœ“ Compiled /api/monitor/jobs/[action] in 83ms (171 modules)
+ POST /api/monitor/jobs/generate 200 in 315ms
+ âœ“ Compiled /api/monitor/instances in 39ms (173 modules)
+ GET /api/monitor/instances?planId=1&page=1&pageSize=50 200 in 62ms
+ POST /api/monitor/jobs/scan 200 in 25ms
+ POST /api/users/seed-super-admin 200 in 22ms
+ POST /api/auth/login 200 in 58ms
+ GET /api/monitor/options 200 in 12ms
+ POST /api/users/seed-super-admin 200 in 13ms
+ POST /api/auth/login 200 in 52ms
+ GET /api/monitor/options 200 in 11ms
+ POST /api/monitor/plans 200 in 18ms
+ POST /api/monitor/plans/2/items 200 in 22ms
+ POST /api/monitor/jobs/generate 200 in 29ms
+ GET /api/monitor/instances?planId=2&page=1&pageSize=20 200 in 24ms
+ POST /api/users/seed-super-admin 200 in 20ms
+ POST /api/auth/login 200 in 53ms
+ GET /api/monitor/options 200 in 12ms
+ POST /api/monitor/plans 200 in 14ms
+ POST /api/monitor/plans/3/items 200 in 21ms
+ PUT /api/monitor/items/5/users 200 in 35ms
+ POST /api/monitor/items/5/rules 200 in 31ms
+ POST /api/monitor/plans/3/items 200 in 20ms
+ PUT /api/monitor/items/6/users 200 in 25ms
+ POST /api/monitor/items/6/rules 200 in 20ms
+ POST /api/monitor/plans/3/items 200 in 15ms
+ PUT /api/monitor/items/7/users 200 in 22ms
+ POST /api/monitor/items/7/rules 200 in 17ms
+ POST /api/monitor/jobs/generate 200 in 30ms
+ GET /api/monitor/instances?planId=3&page=1&pageSize=50 200 in 17ms
+ âœ“ Compiled /api/monitor/instances/[id]/complete in 113ms (176 modules)
+ POST /api/monitor/instances/2/complete 200 in 402ms
+ POST /api/monitor/instances/3/complete 200 in 29ms
+ âœ“ Compiled /api/monitor/items/[id] in 65ms (179 modules)
+ PATCH /api/monitor/items/6 200 in 317ms
+ POST /api/monitor/instances/4/complete 200 in 31ms
+ POST /api/monitor/jobs/scan 200 in 62ms
+ÖÕÖ¹Åú´¦Àí²Ù×÷Âð(Y/N)? [?25h

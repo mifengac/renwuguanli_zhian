@@ -4,6 +4,8 @@ CREATE TYPE "MonitorCycleType" AS ENUM ('ONCE', 'WEEKLY', 'MONTHLY', 'QUARTERLY'
 
 CREATE TYPE "MonitorCompleteMode" AS ENUM ('MANUAL_CLICK');
 
+CREATE TYPE "MonitorItemStatus" AS ENUM ('ACTIVE', 'COMPLETED');
+
 CREATE TYPE "MonitorItemUserRoleType" AS ENUM ('OWNER', 'REMIND', 'CC');
 
 CREATE TYPE "MonitorTriggerType" AS ENUM ('BEFORE_DUE', 'ON_DUE', 'AFTER_DUE');
@@ -62,6 +64,7 @@ CREATE TABLE "monitor_item" (
   "item_code" TEXT NOT NULL,
   "item_name" TEXT NOT NULL,
   "item_category" TEXT,
+  "status" "MonitorItemStatus" NOT NULL DEFAULT 'ACTIVE',
   "cycle_type" "MonitorCycleType" NOT NULL DEFAULT 'ONCE',
   "cycle_conf" JSONB,
   "due_time" TEXT NOT NULL DEFAULT '17:00:00',
@@ -210,6 +213,9 @@ CREATE INDEX "monitor_item_plan_id_is_enabled_idx"
 
 CREATE INDEX "monitor_item_cycle_type_idx"
   ON "monitor_item"("cycle_type");
+
+CREATE INDEX "monitor_item_status_idx"
+  ON "monitor_item"("status");
 
 CREATE INDEX "monitor_item_user_item_role_enabled_idx"
   ON "monitor_item_user"("item_id", "role_type", "is_enabled");

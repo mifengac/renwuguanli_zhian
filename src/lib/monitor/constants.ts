@@ -18,6 +18,8 @@ export const MONITOR_CYCLE_TYPES = [
 
 export const MONITOR_COMPLETE_MODES = ["MANUAL_CLICK"] as const;
 
+export const MONITOR_ITEM_STATUS = ["ACTIVE", "COMPLETED"] as const;
+
 export const MONITOR_ITEM_USER_ROLE_TYPES = ["OWNER", "REMIND", "CC"] as const;
 
 export const MONITOR_TRIGGER_TYPES = [
@@ -72,6 +74,7 @@ export const MONITOR_OPERATE_ACTIONS = [
 export type MonitorPlanStatusValue = (typeof MONITOR_PLAN_STATUS)[number];
 export type MonitorCycleTypeValue = (typeof MONITOR_CYCLE_TYPES)[number];
 export type MonitorCompleteModeValue = (typeof MONITOR_COMPLETE_MODES)[number];
+export type MonitorItemStatusValue = (typeof MONITOR_ITEM_STATUS)[number];
 export type MonitorItemUserRoleTypeValue =
   (typeof MONITOR_ITEM_USER_ROLE_TYPES)[number];
 export type MonitorTriggerTypeValue = (typeof MONITOR_TRIGGER_TYPES)[number];
@@ -98,6 +101,14 @@ export const MONITOR_CYCLE_TYPE_LABELS: Record<MonitorCycleTypeValue, string> = 
   MONTHLY: "每月",
   QUARTERLY: "每季度",
   CUSTOM: "自定义",
+};
+
+export const MONITOR_ITEM_STATUS_LABELS: Record<
+  MonitorItemStatusValue,
+  string
+> = {
+  ACTIVE: "进行中",
+  COMPLETED: "已完成",
 };
 
 export const MONITOR_ITEM_USER_ROLE_LABELS: Record<

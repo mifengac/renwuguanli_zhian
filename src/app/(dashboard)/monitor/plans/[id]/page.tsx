@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import MonitorNav from "@/components/monitor/MonitorNav";
 import ItemFormModal from "@/components/monitor/ItemFormModal";
 import ItemUserModal from "@/components/monitor/ItemUserModal";
+import MonitorNav from "@/components/monitor/MonitorNav";
 import RuleModal from "@/components/monitor/RuleModal";
 import {
   MONITOR_CYCLE_TYPE_LABELS,
+  MONITOR_ITEM_STATUS_LABELS,
   MONITOR_PLAN_STATUS_LABELS,
 } from "@/lib/monitor/constants";
 import {
@@ -21,6 +22,12 @@ import {
 function formatDateOnly(value: string | null) {
   if (!value) return "-";
   return value.slice(0, 10);
+}
+
+function getOwnerUserIds(item: MonitorItemRow) {
+  return item.itemUsers
+    .filter((entry) => entry.roleType === "OWNER" && entry.isEnabled)
+    .map((entry) => entry.userId);
 }
 
 export default function MonitorPlanDetailPage() {
@@ -44,6 +51,12 @@ export default function MonitorPlanDetailPage() {
     return currentUser.role === "ADMIN" && currentUser.departmentId === plan.ownerDeptId;
   }, [currentUser, plan]);
 
+  function canCompleteItem(item: MonitorItemRow) {
+    if (!currentUser || !plan) return false;
+    if (canManage) return true;
+    return getOwnerUserIds(item).includes(currentUser.id);
+  }
+
   async function loadDetail() {
     setLoading(true);
     setError(null);
@@ -63,7 +76,7 @@ export default function MonitorPlanDetailPage() {
       }
 
       if (!optionRes.ok) {
-        setError(optionData.message || "加载人员配置数据失败");
+        setError(optionData.message || "加载人员选项失败");
         return;
       }
 
@@ -103,6 +116,36 @@ export default function MonitorPlanDetailPage() {
     await loadDetail();
   }
 
+  async function handleChangeItemStatus(
+    item: MonitorItemRow,
+    status: "ACTIVE" | "COMPLETED"
+  ) {
+    const confirmMessage =
+      status === "COMPLETED"
+        ? "确认将该事项标记为已完成吗？完成后将停止生成实例和短信提醒。"
+        : "确认将该事项重新打开吗？重新打开后会恢复实例生成和提醒扫描。";
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    const res = await fetch(`/api/monitor/items/${item.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data.message || "更新事项状态失败");
+      return;
+    }
+
+    await loadDetail();
+  }
+
   async function runPlanJob(action: "generate" | "scan") {
     const res = await fetch(`/api/monitor/jobs/${action}`, {
       method: "POST",
@@ -119,10 +162,10 @@ export default function MonitorPlanDetailPage() {
 
     const result = data.result || {};
     if (action === "generate") {
-      setJobMessage(`当前专项实例生成完成：新增 ${result.createdCount || 0} 条。`);
+      setJobMessage(`实例生成完成：新增 ${result.createdCount || 0} 条，跳过 ${result.skippedCount || 0} 条。`);
     } else {
       setJobMessage(
-        `当前专项提醒扫描完成：成功 ${result.sentCount || 0} 条，失败 ${result.failedCount || 0} 条。`
+        `提醒扫描完成：成功 ${result.sentCount || 0} 条，失败 ${result.failedCount || 0} 条，跳过 ${result.skippedCount || 0} 条。`
       );
     }
 
@@ -155,11 +198,9 @@ export default function MonitorPlanDetailPage() {
               <Link href="/monitor/plans" className="text-xs text-slate-500 hover:text-blue-700">
                 返回专项工作列表
               </Link>
-              <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                {plan.planName}
-              </h2>
+              <h2 className="mt-2 text-xl font-semibold text-slate-900">{plan.planName}</h2>
               <p className="mt-1 text-sm text-slate-500">
-                编码：{plan.planCode} · 牵头部门：{plan.ownerDeptName}
+                编码：{plan.planCode} | 牵头部门：{plan.ownerDeptName}
               </p>
             </div>
             <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-3">
@@ -237,7 +278,7 @@ export default function MonitorPlanDetailPage() {
         <div className="border-b border-slate-200 px-5 py-4">
           <h3 className="text-base font-semibold text-slate-900">事项清单</h3>
           <p className="mt-1 text-xs text-slate-500">
-            在此配置事项定义、责任人以及提醒规则。
+            在此配置事项定义、责任人和提醒规则。事项标记为已完成后，将停止实例生成与提醒。
           </p>
         </div>
         {plan.items.length === 0 ? (
@@ -268,6 +309,7 @@ export default function MonitorPlanDetailPage() {
                     .filter((entry) => entry.roleType === "REMIND" && entry.isEnabled)
                     .map((entry) => entry.userName)
                     .join("、");
+                  const canOperateItem = canCompleteItem(item);
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50">
@@ -275,12 +317,12 @@ export default function MonitorPlanDetailPage() {
                         <div className="font-medium text-slate-900">{item.itemName}</div>
                         <div className="mt-1 text-xs text-slate-500">
                           编码：{item.itemCode}
-                          {item.itemCategory ? ` · 分类：${item.itemCategory}` : ""}
+                          {item.itemCategory ? ` | 分类：${item.itemCategory}` : ""}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
                           截止：{item.dueTime.slice(0, 5)}
-                          {item.needAttachment ? " · 必传附件" : ""}
-                          {item.needRemark ? " · 必填备注" : ""}
+                          {item.needAttachment ? " | 必传附件" : ""}
+                          {item.needRemark ? " | 必填备注" : ""}
                         </div>
                       </td>
                       <td className="px-4 py-4 align-top text-xs text-slate-600">
@@ -290,22 +332,31 @@ export default function MonitorPlanDetailPage() {
                         <div>责任人：{owners || "-"}</div>
                         <div className="mt-1">提醒对象：{reminds || "-"}</div>
                       </td>
-                      <td className="px-4 py-4 align-top text-slate-600">
-                        {item.rules.length}
-                      </td>
+                      <td className="px-4 py-4 align-top text-slate-600">{item.rules.length}</td>
                       <td className="px-4 py-4 align-top text-slate-600">
                         {item._count?.instances ?? 0}
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs ${
-                            item.isEnabled
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {item.isEnabled ? "启用中" : "已停用"}
-                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs ${
+                              item.status === "COMPLETED"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {MONITOR_ITEM_STATUS_LABELS[item.status]}
+                          </span>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs ${
+                              item.isEnabled
+                                ? "bg-sky-50 text-sky-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {item.isEnabled ? "已启用" : "已停用"}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="flex flex-wrap gap-2 text-xs">
@@ -341,23 +392,41 @@ export default function MonitorPlanDetailPage() {
                               >
                                 配置规则
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => router.push(`/monitor/instances?planId=${plan.id}&itemId=${item.id}`)}
-                                className="text-slate-600 hover:underline"
-                              >
-                                查看实例
-                              </button>
-                              {item.isEnabled && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDisableItem(item.id)}
-                                  className="text-red-600 hover:underline"
-                                >
-                                  停用
-                                </button>
-                              )}
                             </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/monitor/instances?planId=${plan.id}&itemId=${item.id}`)}
+                            className="text-slate-600 hover:underline"
+                          >
+                            查看实例
+                          </button>
+                          {canOperateItem && item.status === "ACTIVE" && (
+                            <button
+                              type="button"
+                              onClick={() => handleChangeItemStatus(item, "COMPLETED")}
+                              className="text-emerald-700 hover:underline"
+                            >
+                              标记完成
+                            </button>
+                          )}
+                          {canOperateItem && item.status === "COMPLETED" && (
+                            <button
+                              type="button"
+                              onClick={() => handleChangeItemStatus(item, "ACTIVE")}
+                              className="text-amber-700 hover:underline"
+                            >
+                              重新打开
+                            </button>
+                          )}
+                          {canManage && item.isEnabled && (
+                            <button
+                              type="button"
+                              onClick={() => handleDisableItem(item.id)}
+                              className="text-red-600 hover:underline"
+                            >
+                              停用
+                            </button>
                           )}
                         </div>
                       </td>

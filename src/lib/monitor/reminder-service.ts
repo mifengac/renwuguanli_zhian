@@ -208,6 +208,10 @@ function buildBizDedupeKey(params: {
   )}-C-${params.channel}-U-${sanitizeKey(params.receiverKey)}`;
 }
 
+function buildOracleSmsEid(logId: number) {
+  return `MNL-${logId}`;
+}
+
 function isUniqueConstraintError(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -248,8 +252,9 @@ async function sendChannelMessage(params: {
     };
   }
 
+  const oracleEid = params.oracleEid?.trim() || buildOracleSmsEid(params.logId);
   const result = await sendSmsByOracleQueue({
-    oracleEid: params.oracleEid || `MI-${params.logId}`,
+    oracleEid,
     mobile: params.mobile || "",
     content: params.content,
     pushTime: new Date(),
@@ -261,6 +266,7 @@ async function sendChannelMessage(params: {
       sendStatus: result.status,
       sendTime: new Date(),
       failReason: result.failReason ?? null,
+      oracleEid,
       oraclePushTime: result.oraclePushTime ?? null,
       retryCount: result.status === "FAILED" ? 1 : 0,
     },
@@ -333,7 +339,7 @@ export async function scanMonitorReminders(options: {
   const instances = await prisma.monitorInstance.findMany({
     where: {
       status: {
-        in: ["PENDING", "OVERDUE"],
+        in: ["PENDING", "OVERDUE", "COMPLETED"],
       },
       ...(options.planId ? { planId: options.planId } : {}),
       plan: {
@@ -342,6 +348,7 @@ export async function scanMonitorReminders(options: {
       },
       item: {
         isEnabled: true,
+        status: "ACTIVE",
       },
     },
     include: {
@@ -390,6 +397,10 @@ export async function scanMonitorReminders(options: {
   for (const instance of instances) {
     for (const rule of instance.item.rules) {
       scannedRules += 1;
+      if (instance.status === "COMPLETED" && rule.stopWhenDone) {
+        skippedCount += 1;
+        continue;
+      }
       const evaluation = evaluateRuleTrigger(instance, rule, now);
       if (!evaluation) continue;
 
@@ -439,12 +450,6 @@ export async function scanMonitorReminders(options: {
             channel,
             receiverKey,
           });
-          const oracleEid =
-            channel === "SMS"
-              ? `MI-${instance.id}-R-${rule.id}-U-${sanitizeKey(
-                  receiver.mobile || String(receiver.userId)
-                )}-${sanitizeKey(evaluation.triggerKey)}`
-              : null;
 
           const createdLog = await createNotifyLogSafely({
             instance: {
@@ -462,7 +467,7 @@ export async function scanMonitorReminders(options: {
             content,
             bizDedupeKey,
             sendStatus: "READY",
-            oracleEid,
+            oracleEid: null,
           });
 
           if (!createdLog) {
@@ -478,7 +483,6 @@ export async function scanMonitorReminders(options: {
             channel,
             content,
             mobile: receiver.mobile,
-            oracleEid,
           });
 
           if (result.sendStatus === "SUCCESS") {
@@ -579,9 +583,10 @@ export async function retryFailedMonitorNotifications(options: {
 
   for (const log of notifyLogs) {
     retriedCount += 1;
+    const oracleEid = log.oracleEid || buildOracleSmsEid(log.id);
 
     const result = await sendSmsByOracleQueue({
-      oracleEid: log.oracleEid || `MI-${log.instanceId}-R-${log.ruleId}-${log.id}`,
+      oracleEid,
       mobile: log.receiverMobile || "",
       content: log.content,
       pushTime: new Date(),
@@ -593,6 +598,7 @@ export async function retryFailedMonitorNotifications(options: {
         sendStatus: result.status,
         sendTime: new Date(),
         failReason: result.failReason ?? null,
+        oracleEid,
         oraclePushTime: result.oraclePushTime ?? null,
         retryCount: {
           increment: 1,

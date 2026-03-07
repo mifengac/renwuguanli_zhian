@@ -412,7 +412,7 @@ export async function generateMonitorInstances(
     },
     include: {
       items: {
-        where: { isEnabled: true },
+        where: { isEnabled: true, status: "ACTIVE" },
         orderBy: [{ sortNo: "asc" }, { id: "asc" }],
       },
     },

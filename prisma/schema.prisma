@@ -80,6 +80,11 @@ enum MonitorCompleteMode {
   MANUAL_CLICK
 }
 
+enum MonitorItemStatus {
+  ACTIVE
+  COMPLETED
+}
+
 enum MonitorItemUserRoleType {
   OWNER
   REMIND
@@ -247,6 +252,7 @@ model MonitorItem {
   itemCode       String              @map("item_code")
   itemName       String              @map("item_name")
   itemCategory   String?             @map("item_category")
+  status         MonitorItemStatus   @default(ACTIVE)
   cycleType      MonitorCycleType    @default(ONCE) @map("cycle_type")
   cycleConf      Json?               @map("cycle_conf")
   dueTime        String              @default("17:00:00") @map("due_time")
@@ -269,6 +275,7 @@ model MonitorItem {
   @@unique([planId, itemCode], map: "monitor_item_plan_id_item_code_key")
   @@index([planId, isEnabled], map: "monitor_item_plan_id_is_enabled_idx")
   @@index([cycleType], map: "monitor_item_cycle_type_idx")
+  @@index([status], map: "monitor_item_status_idx")
   @@map("monitor_item")
 }
 
