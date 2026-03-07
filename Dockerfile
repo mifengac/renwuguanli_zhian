@@ -1,11 +1,14 @@
 FROM node:20-bookworm-slim AS base
 
-RUN npm config set registry https://registry.npmmirror.com
-RUN apt-get update \
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ORACLE_CLIENT_SRC_DIR=/tmp/oracle/instantclient_11_2
+ENV ORACLE_CLIENT_LIB_DIR=/opt/oracle/instantclient
+
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+  && npm config set registry https://registry.npmmirror.com \
+  && apt-get update \
   && apt-get install -y --no-install-recommends libaio1 libnsl2 unzip ca-certificates \
   && rm -rf /var/lib/apt/lists/*
-
-ENV ORACLE_CLIENT_LIB_DIR=/opt/oracle/instantclient
 
 FROM base AS builder
 
@@ -15,8 +18,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
-COPY oracle/instantclient/ ${ORACLE_CLIENT_LIB_DIR}/
-RUN echo "${ORACLE_CLIENT_LIB_DIR}" > /etc/ld.so.conf.d/oracle-instantclient.conf \
+COPY instantclient_11_2/ ${ORACLE_CLIENT_SRC_DIR}/
+RUN ls "${ORACLE_CLIENT_SRC_DIR}"/libclntsh.so* "${ORACLE_CLIENT_SRC_DIR}"/libnnz*.so "${ORACLE_CLIENT_SRC_DIR}"/libocci.so* >/dev/null \
+  && mkdir -p "${ORACLE_CLIENT_LIB_DIR}" \
+  && cp -a "${ORACLE_CLIENT_SRC_DIR}/." "${ORACLE_CLIENT_LIB_DIR}/" \
+  && echo "${ORACLE_CLIENT_LIB_DIR}" > /etc/ld.so.conf.d/oracle-instantclient.conf \
   && ldconfig
 
 ENV DATABASE_URL="postgresql://placeholder/placeholder"
@@ -32,8 +38,11 @@ ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
-COPY oracle/instantclient/ ${ORACLE_CLIENT_LIB_DIR}/
-RUN echo "${ORACLE_CLIENT_LIB_DIR}" > /etc/ld.so.conf.d/oracle-instantclient.conf \
+COPY instantclient_11_2/ ${ORACLE_CLIENT_SRC_DIR}/
+RUN ls "${ORACLE_CLIENT_SRC_DIR}"/libclntsh.so* "${ORACLE_CLIENT_SRC_DIR}"/libnnz*.so "${ORACLE_CLIENT_SRC_DIR}"/libocci.so* >/dev/null \
+  && mkdir -p "${ORACLE_CLIENT_LIB_DIR}" \
+  && cp -a "${ORACLE_CLIENT_SRC_DIR}/." "${ORACLE_CLIENT_LIB_DIR}/" \
+  && echo "${ORACLE_CLIENT_LIB_DIR}" > /etc/ld.so.conf.d/oracle-instantclient.conf \
   && ldconfig
 
 COPY --from=builder /app/.next ./.next

@@ -46,3 +46,7 @@ Thumbs.db
 
 # Docker tarball
 *.tar
+
+# Local Oracle client artifacts for offline image builds
+instantclient_11_2/
+oracle-instantclient*.rpm
