@@ -11,7 +11,12 @@ export function middleware(req: NextRequest) {
   }
 
   // 保护页面路由（/tasks 及主页），仅检查是否存在 auth_token
-  if (pathname.startsWith("/tasks") || pathname === "/") {
+  if (
+    pathname.startsWith("/tasks") ||
+    pathname.startsWith("/users") ||
+    pathname.startsWith("/monitor") ||
+    pathname === "/"
+  ) {
     const token = req.cookies.get("auth_token")?.value;
     if (!token) {
       const loginUrl = new URL("/login", req.url);

@@ -61,6 +61,83 @@ enum MemberStatus {
   SUBMITTED
 }
 
+enum MonitorPlanStatus {
+  DRAFT
+  ENABLED
+  PAUSED
+  FINISHED
+}
+
+enum MonitorCycleType {
+  ONCE
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  CUSTOM
+}
+
+enum MonitorCompleteMode {
+  MANUAL_CLICK
+}
+
+enum MonitorItemUserRoleType {
+  OWNER
+  REMIND
+  CC
+}
+
+enum MonitorTriggerType {
+  BEFORE_DUE
+  ON_DUE
+  AFTER_DUE
+}
+
+enum MonitorRepeatType {
+  ONCE
+  DAILY
+  WORKDAY_DAILY
+  EVERY_N_HOURS
+}
+
+enum MonitorInstanceStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum MonitorNotifyChannel {
+  SMS
+  SYSTEM
+}
+
+enum MonitorNotifySendStatus {
+  READY
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum MonitorOperateActionType {
+  CREATE_PLAN
+  UPDATE_PLAN
+  CHANGE_PLAN_STATUS
+  CREATE_ITEM
+  UPDATE_ITEM
+  DISABLE_ITEM
+  CONFIG_ITEM_USER
+  CREATE_RULE
+  UPDATE_RULE
+  CHANGE_RULE_STATUS
+  GENERATE_INSTANCE
+  MARK_OVERDUE
+  COMPLETE
+  REOPEN
+  SEND_REMIND
+  COMPENSATE_NOTIFY
+  RULE_CHANGE
+}
+
 model Task {
   id           Int                @id @default(autoincrement())
   title        String
@@ -133,4 +210,199 @@ model TaskStatusHistory {
   createdAt   DateTime   @default(now())
   task        Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
   operator    User       @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+}
+
+model MonitorPlan {
+  id            Int                   @id @default(autoincrement())
+  planCode      String                @map("plan_code")
+  planName      String                @map("plan_name")
+  planType      String?               @map("plan_type")
+  sourceTaskId  Int?                  @map("source_task_id")
+  ownerDeptId   Int                   @map("owner_dept_id")
+  ownerDeptName String                @map("owner_dept_name")
+  startDate     DateTime              @map("start_date") @db.Date
+  endDate       DateTime?             @map("end_date") @db.Date
+  status        MonitorPlanStatus     @default(DRAFT)
+  remark        String?
+  createdBy     Int?                  @map("created_by")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedBy     Int?                  @map("updated_by")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  deletedFlag   Boolean               @default(false) @map("deleted_flag")
+  items         MonitorItem[]
+  instances     MonitorInstance[]
+  operateLogs   MonitorOperateLog[]
+
+  @@unique([planCode], map: "monitor_plan_plan_code_key")
+  @@index([status, endDate], map: "monitor_plan_status_end_date_idx")
+  @@index([ownerDeptId], map: "monitor_plan_owner_dept_id_idx")
+  @@index([sourceTaskId], map: "monitor_plan_source_task_id_idx")
+  @@index([deletedFlag], map: "monitor_plan_deleted_flag_idx")
+  @@map("monitor_plan")
+}
+
+model MonitorItem {
+  id             Int                 @id @default(autoincrement())
+  planId         Int                 @map("plan_id")
+  itemCode       String              @map("item_code")
+  itemName       String              @map("item_name")
+  itemCategory   String?             @map("item_category")
+  cycleType      MonitorCycleType    @default(ONCE) @map("cycle_type")
+  cycleConf      Json?               @map("cycle_conf")
+  dueTime        String              @default("17:00:00") @map("due_time")
+  completeMode   MonitorCompleteMode @default(MANUAL_CLICK) @map("complete_mode")
+  needAttachment Boolean             @default(false) @map("need_attachment")
+  needRemark     Boolean             @default(false) @map("need_remark")
+  sortNo         Int                 @default(0) @map("sort_no")
+  isEnabled      Boolean             @default(true) @map("is_enabled")
+  remark         String?
+  createdBy      Int?                @map("created_by")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedBy      Int?                @map("updated_by")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  plan           MonitorPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemUsers      MonitorItemUser[]
+  rules          MonitorRule[]
+  instances      MonitorInstance[]
+  operateLogs    MonitorOperateLog[]
+
+  @@unique([planId, itemCode], map: "monitor_item_plan_id_item_code_key")
+  @@index([planId, isEnabled], map: "monitor_item_plan_id_is_enabled_idx")
+  @@index([cycleType], map: "monitor_item_cycle_type_idx")
+  @@map("monitor_item")
+}
+
+model MonitorItemUser {
+  id        Int                     @id @default(autoincrement())
+  itemId    Int                     @map("item_id")
+  userId    Int                     @map("user_id")
+  userName  String                  @map("user_name")
+  deptId    Int?                    @map("dept_id")
+  deptName  String?                 @map("dept_name")
+  mobile    String?
+  roleType  MonitorItemUserRoleType @map("role_type")
+  isPrimary Boolean                 @default(false) @map("is_primary")
+  isEnabled Boolean                 @default(true) @map("is_enabled")
+  createdAt DateTime                @default(now()) @map("created_at")
+  item      MonitorItem             @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, userId, roleType], map: "monitor_item_user_item_id_user_id_role_type_key")
+  @@index([itemId, roleType, isEnabled], map: "monitor_item_user_item_role_enabled_idx")
+  @@index([userId], map: "monitor_item_user_user_id_idx")
+  @@map("monitor_item_user")
+}
+
+model MonitorRule {
+  id            Int                @id @default(autoincrement())
+  itemId        Int                @map("item_id")
+  ruleName      String             @map("rule_name")
+  triggerType   MonitorTriggerType @map("trigger_type")
+  offsetDays    Int                @default(0) @map("offset_days")
+  offsetHours   Int                @default(0) @map("offset_hours")
+  repeatType    MonitorRepeatType  @default(ONCE) @map("repeat_type")
+  repeatInterval Int?              @map("repeat_interval")
+  remindTime    String?            @map("remind_time")
+  maxTimes      Int?               @map("max_times")
+  channelSms    Boolean            @default(false) @map("channel_sms")
+  channelSystem Boolean            @default(true) @map("channel_system")
+  stopWhenDone  Boolean            @default(true) @map("stop_when_done")
+  contentTpl    String?            @map("content_tpl")
+  isEnabled     Boolean            @default(true) @map("is_enabled")
+  createdBy     Int?               @map("created_by")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedBy     Int?               @map("updated_by")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  item          MonitorItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  notifyLogs    MonitorNotifyLog[]
+
+  @@index([itemId, isEnabled], map: "monitor_rule_item_id_is_enabled_idx")
+  @@index([triggerType, repeatType], map: "monitor_rule_trigger_repeat_idx")
+  @@map("monitor_rule")
+}
+
+model MonitorInstance {
+  id              Int                   @id @default(autoincrement())
+  planId          Int                   @map("plan_id")
+  itemId          Int                   @map("item_id")
+  instanceCode    String                @map("instance_code")
+  periodKey       String                @map("period_key")
+  periodLabel     String                @map("period_label")
+  periodStart     DateTime              @map("period_start") @db.Date
+  periodEnd       DateTime              @map("period_end") @db.Date
+  dueAt           DateTime              @map("due_at")
+  status          MonitorInstanceStatus @default(PENDING)
+  completedBy     Int?                  @map("completed_by")
+  completedByName String?               @map("completed_by_name")
+  completedAt     DateTime?             @map("completed_at")
+  completeRemark  String?               @map("complete_remark")
+  attachmentJson  Json?                 @map("attachment_json")
+  remindCount     Int                   @default(0) @map("remind_count")
+  firstRemindAt   DateTime?             @map("first_remind_at")
+  lastRemindAt    DateTime?             @map("last_remind_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  plan            MonitorPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  item            MonitorItem           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  notifyLogs      MonitorNotifyLog[]
+  operateLogs     MonitorOperateLog[]
+
+  @@unique([itemId, periodKey], map: "monitor_instance_item_id_period_key_key")
+  @@unique([instanceCode], map: "monitor_instance_instance_code_key")
+  @@index([planId, status], map: "monitor_instance_plan_id_status_idx")
+  @@index([itemId], map: "monitor_instance_item_id_idx")
+  @@index([dueAt, status], map: "monitor_instance_due_at_status_idx")
+  @@index([lastRemindAt], map: "monitor_instance_last_remind_at_idx")
+  @@map("monitor_instance")
+}
+
+model MonitorNotifyLog {
+  id             Int                     @id @default(autoincrement())
+  instanceId     Int                     @map("instance_id")
+  ruleId         Int                     @map("rule_id")
+  triggerKey     String                  @map("trigger_key")
+  receiverUserId Int?                    @map("receiver_user_id")
+  receiverName   String                  @map("receiver_name")
+  receiverMobile String?                 @map("receiver_mobile")
+  channel        MonitorNotifyChannel
+  title          String?
+  content        String
+  bizDedupeKey   String                  @map("biz_dedupe_key")
+  sendStatus     MonitorNotifySendStatus @default(READY) @map("send_status")
+  sendTime       DateTime?               @map("send_time")
+  failReason     String?                 @map("fail_reason")
+  oracleEid      String?                 @map("oracle_eid")
+  oraclePushTime DateTime?               @map("oracle_push_time")
+  retryCount     Int                     @default(0) @map("retry_count")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  instance       MonitorInstance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  rule           MonitorRule             @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([bizDedupeKey], map: "monitor_notify_log_biz_dedupe_key_key")
+  @@index([instanceId, ruleId, triggerKey], map: "monitor_notify_log_instance_rule_trigger_idx")
+  @@index([sendStatus, createdAt], map: "monitor_notify_log_send_status_created_at_idx")
+  @@index([receiverUserId], map: "monitor_notify_log_receiver_user_id_idx")
+  @@map("monitor_notify_log")
+}
+
+model MonitorOperateLog {
+  id             Int                      @id @default(autoincrement())
+  planId         Int?                     @map("plan_id")
+  itemId         Int?                     @map("item_id")
+  instanceId     Int?                     @map("instance_id")
+  actionType     MonitorOperateActionType @map("action_type")
+  operatorId     Int?                     @map("operator_id")
+  operatorName   String?                  @map("operator_name")
+  operatorDeptId Int?                     @map("operator_dept_id")
+  operatorIp     String?                  @map("operator_ip")
+  detailJson     Json?                    @map("detail_json")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  plan           MonitorPlan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
+  item           MonitorItem?             @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  instance       MonitorInstance?         @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+
+  @@index([planId, createdAt], map: "monitor_operate_log_plan_id_created_at_idx")
+  @@index([itemId, createdAt], map: "monitor_operate_log_item_id_created_at_idx")
+  @@index([instanceId, createdAt], map: "monitor_operate_log_instance_id_created_at_idx")
+  @@index([actionType, createdAt], map: "monitor_operate_log_action_type_created_at_idx")
+  @@map("monitor_operate_log")
 }

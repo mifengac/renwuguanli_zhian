@@ -1,5 +1,6 @@
 import Link from "next/link";
 import "../../styles/globals.css";
+import DashboardNav from "@/components/DashboardNav";
 import UserMenu from "@/components/UserMenu";
 
 export default function DashboardLayout({
@@ -23,7 +24,10 @@ export default function DashboardLayout({
               </h1>
             </div>
           </div>
-          <UserMenu />
+          <div className="flex items-center gap-3">
+            <DashboardNav />
+            <UserMenu />
+          </div>
         </div>
       </header>
 
