@@ -11,17 +11,16 @@
 
 在有外网的构建机执行：
 
-先把 Oracle Instant Client 解压到仓库中的 `oracle/instantclient/` 目录，Dockerfile 会将该目录整体打包进镜像，并固定映射为镜像内的 `/opt/oracle/instantclient`。
+先把 Oracle Instant Client 11.2 的运行库解压到仓库根目录的 `instantclient_11_2/`，Dockerfile 会将该目录整体打包进镜像，并固定映射为镜像内的 `/opt/oracle/instantclient`。
 
 ```bash
-npm ci
-npm run build
-docker build -t zhian-renwuguanli:0307 .
+powershell -ExecutionPolicy Bypass -File scripts/build-offline-image.ps1
 ```
 
-导出镜像：
+如果你需要手工执行，等价命令是：
 
 ```bash
+docker build -t zhian-renwuguanli:0307 .
 docker save -o zhian-renwuguanli-0307.tar zhian-renwuguanli:0307
 ```
 
@@ -96,23 +95,108 @@ psql "$DATABASE_URL" -f prisma/migrations/20260307090000_add_monitor_module/migr
 npx prisma migrate deploy
 ```
 
-### 3.3 推荐流程
+### 3.3 数据库备份与恢复
 
-1. 备份生产库
+#### 3.3.1 生产库备份
+
+**方式一：使用 DATABASE_URL 备份（推荐）**
 
 ```bash
+# 设置数据库连接（如果是本地可直接用连接字符串）
+export DATABASE_URL="postgresql://用户名:密码@localhost:5432/数据库名"
+
+# 创建带时间戳的备份文件
+BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).dump"
+pg_dump "$DATABASE_URL" -Fc -f "$BACKUP_FILE"
+
+echo "备份完成: $BACKUP_FILE"
+```
+
+**方式二：直接指定参数备份**
+
+```bash
+# 自定义格式备份（推荐，支持选择性恢复）
+pg_dump -h localhost -p 5432 -U 用户名 -d 数据库名 -Fc -f backup-custom.dump
+
+# 纯文本 SQL 备份（可用于查看或编辑）
+pg_dump -h localhost -p 5432 -U 用户名 -d 数据库名 -f backup-plain.sql
+
+# 仅备份数据（不含结构）
+pg_dump -h localhost -p 5432 -U 用户名 -d 数据库名 --data-only -f backup-data-only.sql
+
+# 仅备份结构（不含数据）
+pg_dump -h localhost -p 5432 -U 用户名 -d 数据库名 --schema-only -f backup-schema-only.sql
+```
+
+**方式三：备份特定表**
+
+```bash
+# 只备份指定表（多个表用空格分隔）
+pg_dump -h localhost -p 5432 -U 用户名 -d 数据库名 -t monitor_plan -t monitor_item -Fc -f backup-monitor-only.dump
+```
+
+#### 3.3.2 备份恢复到测试环境
+
+**步骤1：创建测试数据库**
+
+```bash
+# 使用 postgres 用户登录创建新数据库
+psql -h localhost -p 5432 -U postgres -c "CREATE DATABASE renwu_test OWNER 用户名;"
+
+# 或者使用 createdb 工具
+createdb -h localhost -p 5432 -U postgres -O 用户名 renwu_test
+```
+
+**步骤2：恢复备份到测试库**
+
+```bash
+# 从自定义格式备份恢复（使用 pg_restore）
+pg_restore -h localhost -p 5432 -U 用户名 -d renwu_test backup-custom.dump
+
+# 如果恢复时遇到权限问题，以超级用户恢复
+pg_restore -h localhost -p 5432 -U postgres -d renwu_test --no-owner --role=用户名 backup-custom.dump
+
+# 从纯文本 SQL 备份恢复
+psql -h localhost -p 5432 -U 用户名 -d renwu_test -f backup-plain.sql
+```
+
+**步骤3：恢复后验证**
+
+```bash
+# 连接测试库查看表
+psql -h localhost -p 5432 -U 用户名 -d renwu_test -c "\dt"
+
+# 查看用户数量
+psql -h localhost -p 5432 -U 用户名 -d renwu_test -c "SELECT COUNT(*) FROM \"User\";"
+
+# 查看任务数量
+psql -h localhost -p 5432 -U 用户名 -d renwu_test -c "SELECT COUNT(*) FROM \"Task\";"
+```
+
+#### 3.3.3 0307 版本升级测试流程
+
+1. **备份生产库**
+
+```bash
+export DATABASE_URL="postgresql://用户名:密码@生产库IP:5432/renwu_prod"
 pg_dump "$DATABASE_URL" -Fc -f backup-before-0307.dump
 ```
 
-2. 在测试库恢复备份并先执行 migration
+2. **在测试库恢复备份并先执行 migration**
 
 ```bash
-createdb renwu_test
-pg_restore -d renwu_test backup-before-0307.dump
-psql "postgresql://.../renwu_test?schema=public" -f prisma/migrations/20260307090000_add_monitor_module/migration.sql
+# 创建测试库
+createdb -h localhost -p 5432 -U postgres renwu_test
+
+# 恢复生产备份
+pg_restore -h localhost -p 5432 -U postgres -d renwu_test --no-owner backup-before-0307.dump
+
+# 执行 0307 版本的 migration（新增监测提醒模块表）
+export TEST_DB_URL="postgresql://用户名:密码@localhost:5432/renwu_test?schema=public"
+psql "$TEST_DB_URL" -f prisma/migrations/20260307090000_add_monitor_module/migration.sql
 ```
 
-3. 启动 0307 镜像验证
+3. **启动 0307 镜像验证**
 
 - 登录正常
 - 原有任务流程正常
