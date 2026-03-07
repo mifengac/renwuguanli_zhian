@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 export type OracleSmsPayload = {
   oracleEid: string;
   mobile: string;
@@ -21,8 +23,14 @@ type OracleConnection = {
 };
 
 type OracleDbModule = {
+  initOracleClient?: (options: { libDir: string }) => void;
   getConnection: (options: Record<string, unknown>) => Promise<OracleConnection>;
 };
+
+const DEFAULT_ORACLE_CLIENT_LIB_DIR = "/opt/oracle/instantclient";
+
+let oracleClientInitialized = false;
+let initializedOracleClientLibDir: string | null = null;
 
 async function loadOracleDbModule(): Promise<OracleDbModule> {
   const importer = new Function(
@@ -40,6 +48,39 @@ function getOracleInsertSql(): string {
 
   const tableName = process.env.ORACLE_SMS_TABLE?.trim() || "SMS_QUEUE";
   return `INSERT INTO ${tableName} (EID, MOBILE, CONTENT, PUSH_TIME, CREATED_AT) VALUES (:eid, :mobile, :content, :pushTime, :createdAt)`;
+}
+
+function getOracleClientLibDir() {
+  return (
+    process.env.ORACLE_CLIENT_LIB_DIR?.trim() || DEFAULT_ORACLE_CLIENT_LIB_DIR
+  );
+}
+
+function ensureOracleThickMode(oracledb: OracleDbModule) {
+  const libDir = getOracleClientLibDir();
+
+  if (oracleClientInitialized) {
+    if (initializedOracleClientLibDir !== libDir) {
+      throw new Error(
+        `Oracle Instant Client 已按 ${initializedOracleClientLibDir} 初始化，当前 ORACLE_CLIENT_LIB_DIR=${libDir} 不一致`
+      );
+    }
+    return;
+  }
+
+  if (!existsSync(libDir)) {
+    throw new Error(
+      `未找到 Oracle Instant Client 目录：${libDir}。请确认镜像内已包含 Instant Client，并设置 ORACLE_CLIENT_LIB_DIR`
+    );
+  }
+
+  if (!oracledb.initOracleClient) {
+    throw new Error("当前 oracledb 运行时不支持 thick mode 初始化");
+  }
+
+  oracledb.initOracleClient({ libDir });
+  oracleClientInitialized = true;
+  initializedOracleClientLibDir = libDir;
 }
 
 export async function sendSmsByOracleQueue(
@@ -83,6 +124,8 @@ export async function sendSmsByOracleQueue(
 
   try {
     const oracledb = await loadOracleDbModule();
+    ensureOracleThickMode(oracledb);
+
     connection = await oracledb.getConnection({
       user,
       password,

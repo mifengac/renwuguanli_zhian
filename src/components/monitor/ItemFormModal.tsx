@@ -174,24 +174,36 @@ export default function ItemFormModal({
             <input
               value={itemCode}
               onChange={(e) => setItemCode(e.target.value)}
+              placeholder="例如 ITEM-MONTH-001"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：ITEM-WEEK-001、ITEM-MONTH-001
+            </span>
           </label>
           <label className="space-y-1 text-xs text-slate-600">
             <span>事项名称</span>
             <input
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
+              placeholder="例如 每月报送汇报"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：每周上报基础数据、每季度提交专项分析
+            </span>
           </label>
           <label className="space-y-1 text-xs text-slate-600">
             <span>事项分类</span>
             <input
               value={itemCategory}
               onChange={(e) => setItemCategory(e.target.value)}
+              placeholder="例如 报送类 / 督办类"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：报送类、巡查类、台账类
+            </span>
           </label>
           <label className="space-y-1 text-xs text-slate-600">
             <span>周期类型</span>
@@ -206,6 +218,9 @@ export default function ItemFormModal({
                 </option>
               ))}
             </select>
+            <span className="block text-[11px] text-slate-400">
+              示例：每周用于周报，每月用于月报，一次性用于阶段性材料
+            </span>
           </label>
           {cycleType === "ONCE" && (
             <label className="space-y-1 text-xs text-slate-600">
@@ -218,6 +233,9 @@ export default function ItemFormModal({
                 }
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
+              <span className="block text-[11px] text-slate-400">
+                示例：2026-12-20 表示只生成这一期一次性实例
+              </span>
             </label>
           )}
           {cycleType === "WEEKLY" && (
@@ -244,6 +262,9 @@ export default function ItemFormModal({
                   </option>
                 ))}
               </select>
+              <span className="block text-[11px] text-slate-400">
+                示例：选择“周五”表示每周五截止并生成一条周实例
+              </span>
             </label>
           )}
           {cycleType === "MONTHLY" && (
@@ -259,6 +280,9 @@ export default function ItemFormModal({
                 }
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
+              <span className="block text-[11px] text-slate-400">
+                示例：填 25 表示每月 25 日截止
+              </span>
             </label>
           )}
           {cycleType === "QUARTERLY" && (
@@ -276,6 +300,9 @@ export default function ItemFormModal({
                   <option value="2">第 2 月</option>
                   <option value="3">第 3 月</option>
                 </select>
+                <span className="block text-[11px] text-slate-400">
+                  示例：选“第 3 月”表示每季度最后一个月截止
+                </span>
               </label>
               <label className="space-y-1 text-xs text-slate-600">
                 <span>截止日</span>
@@ -289,6 +316,9 @@ export default function ItemFormModal({
                   }
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：季度内月份选 3，截止日填 25，表示每季度最后一个月 25 日截止
+                </span>
               </label>
             </>
           )}
@@ -301,8 +331,12 @@ export default function ItemFormModal({
                 onChange={(e) =>
                   setCycleDraft((draft) => ({ ...draft, customJson: e.target.value }))
                 }
+                placeholder={'{\n  "dueDates": ["2026-03-15", "2026-04-20"]\n}'}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
               />
+              <span className="block text-[11px] text-slate-400">
+                示例：{"{"}"dueDates": ["2026-03-15", "2026-04-20"]{"}"}，表示按指定日期生成实例
+              </span>
             </label>
           )}
           <label className="space-y-1 text-xs text-slate-600">
@@ -313,6 +347,9 @@ export default function ItemFormModal({
               onChange={(e) => setDueTime(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：17:00 表示当天 17:00 截止，后续提醒和逾期都以此时间计算
+            </span>
           </label>
           <label className="space-y-1 text-xs text-slate-600">
             <span>排序号</span>
@@ -320,8 +357,12 @@ export default function ItemFormModal({
               type="number"
               value={sortNo}
               onChange={(e) => setSortNo(e.target.value)}
+              placeholder="例如 10"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：10、20、30，数字越小越靠前显示
+            </span>
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
@@ -353,8 +394,12 @@ export default function ItemFormModal({
               rows={3}
               value={remark}
               onChange={(e) => setRemark(e.target.value)}
+              placeholder="例如 每月报送内容包括台账、简报和问题清单"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <span className="block text-[11px] text-slate-400">
+              示例：补充说明事项口径、报送范围、附件要求
+            </span>
           </label>
           {error && <p className="md:col-span-2 text-sm text-red-600">{error}</p>}
         </div>

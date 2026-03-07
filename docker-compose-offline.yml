@@ -1,19 +1,30 @@
 services:
   app:
-    image: zhian-renwu1129
+    image: zhian-renwuguanli:0307
     container_name: zhian-app
     restart: unless-stopped
     depends_on:
       - db
       - minio
     environment:
-      DATABASE_URL: "postgresql://postgres:Asd@199312@db:5432/postgres?schema=public"
+      DATABASE_URL: "postgresql://postgres:Asd%40199312@db:5432/postgres?schema=public"
+      JWT_SECRET: "change_me_in_production"
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
       MINIO_BUCKET: "zhian_fujian"
       NODE_ENV: "production"
-      COOKIE_SECU: "false"
+      COOKIE_SECURE: "false"
+      MONITOR_JOB_TOKEN: "change_me_for_internal_cron"
+      MONITOR_INSTANCE_LOOKAHEAD_DAYS: "60"
+      MONITOR_INSTANCE_BACKFILL_DAYS: "7"
+      MONITOR_NOTIFY_RETRY_LIMIT: "5"
+      MONITOR_SMS_DRIVER: "mock"
+      ORACLE_SMS_USER: ""
+      ORACLE_SMS_PASSWORD: ""
+      ORACLE_SMS_CONNECT_STRING: ""
+      ORACLE_SMS_TABLE: "SMS_QUEUE"
+      ORACLE_CLIENT_LIB_DIR: "/opt/oracle/instantclient"
     ports:
       - "3000:3000"
 

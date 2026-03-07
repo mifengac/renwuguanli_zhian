@@ -1,5 +1,5 @@
 export const MONITOR_DEFAULT_TEMPLATE =
-  "【专项监测提醒】{planName} - {itemName}（{periodLabel}）尚未完成，请于 {dueAt} 前处理。";
+  "【基础管控中心专项工作监测提醒】{planName} - {itemName}（{periodLabel}）尚未完成，请于 {dueAt} 前处理。";
 
 export const MONITOR_PLAN_STATUS = [
   "DRAFT",

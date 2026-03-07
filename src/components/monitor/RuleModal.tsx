@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  MONITOR_DEFAULT_TEMPLATE,
   MONITOR_REPEAT_TYPE_LABELS,
   MONITOR_TRIGGER_TYPE_LABELS,
 } from "@/lib/monitor/constants";
@@ -13,9 +14,6 @@ type RuleModalProps = {
   onClose: () => void;
   onSuccess: () => void;
 };
-
-const DEFAULT_TEMPLATE =
-  "【专项监测提醒】{planName} - {itemName}（{periodLabel}）尚未完成，请于 {dueAt} 前处理。";
 
 export default function RuleModal({
   open,
@@ -35,7 +33,7 @@ export default function RuleModal({
   const [channelSms, setChannelSms] = useState(false);
   const [channelSystem, setChannelSystem] = useState(true);
   const [stopWhenDone, setStopWhenDone] = useState(true);
-  const [contentTpl, setContentTpl] = useState(DEFAULT_TEMPLATE);
+  const [contentTpl, setContentTpl] = useState(MONITOR_DEFAULT_TEMPLATE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +55,7 @@ export default function RuleModal({
     setChannelSms(false);
     setChannelSystem(true);
     setStopWhenDone(true);
-    setContentTpl(DEFAULT_TEMPLATE);
+    setContentTpl(MONITOR_DEFAULT_TEMPLATE);
     setError(null);
   }
 
@@ -74,7 +72,7 @@ export default function RuleModal({
     setChannelSms(rule.channelSms);
     setChannelSystem(rule.channelSystem);
     setStopWhenDone(rule.stopWhenDone);
-    setContentTpl(rule.contentTpl ?? DEFAULT_TEMPLATE);
+    setContentTpl(rule.contentTpl ?? MONITOR_DEFAULT_TEMPLATE);
     setError(null);
   }
 
@@ -230,8 +228,12 @@ export default function RuleModal({
                 <input
                   value={ruleName}
                   onChange={(e) => setRuleName(e.target.value)}
+                  placeholder="例如 提前7天每日09:00提醒"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：提前7天每日09:00提醒、到期当天提醒、逾期后每4小时提醒
+                </span>
               </label>
               <label className="space-y-1 text-xs text-slate-600">
                 <span>触发类型</span>
@@ -246,6 +248,9 @@ export default function RuleModal({
                     </option>
                   ))}
                 </select>
+                <span className="block text-[11px] text-slate-400">
+                  示例：提前提醒选“到期前”，截止当天催办选“到期当天”，超期催办选“逾期后”
+                </span>
               </label>
               <label className="space-y-1 text-xs text-slate-600">
                 <span>提前/逾期天数</span>
@@ -256,6 +261,9 @@ export default function RuleModal({
                   onChange={(e) => setOffsetDays(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：提前7天提醒填 7；当天提醒填 0；逾期1天后提醒填 1
+                </span>
               </label>
               <label className="space-y-1 text-xs text-slate-600">
                 <span>偏移小时</span>
@@ -266,6 +274,9 @@ export default function RuleModal({
                   onChange={(e) => setOffsetHours(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：需要提前6小时提醒可填 6；没有小时偏移填 0
+                </span>
               </label>
               <label className="space-y-1 text-xs text-slate-600">
                 <span>重复方式</span>
@@ -280,6 +291,9 @@ export default function RuleModal({
                     </option>
                   ))}
                 </select>
+                <span className="block text-[11px] text-slate-400">
+                  示例：每天提醒选“每天一次”，工作日提醒选“工作日每天”，按间隔提醒选“每 N 小时”
+                </span>
               </label>
               {repeatType === "EVERY_N_HOURS" ? (
                 <label className="space-y-1 text-xs text-slate-600">
@@ -289,8 +303,12 @@ export default function RuleModal({
                     min="1"
                     value={repeatInterval}
                     onChange={(e) => setRepeatInterval(e.target.value)}
+                    placeholder="例如 4"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
+                  <span className="block text-[11px] text-slate-400">
+                    示例：每4小时提醒一次填 4
+                  </span>
                 </label>
               ) : (
                 <label className="space-y-1 text-xs text-slate-600">
@@ -301,6 +319,9 @@ export default function RuleModal({
                     onChange={(e) => setRemindTime(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
+                  <span className="block text-[11px] text-slate-400">
+                    示例：09:00 表示每天上午9点触发一次提醒
+                  </span>
                 </label>
               )}
               <label className="space-y-1 text-xs text-slate-600">
@@ -313,6 +334,9 @@ export default function RuleModal({
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="留空不限"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：最多提醒3次填 3；持续提醒直到完成可留空
+                </span>
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
@@ -344,8 +368,12 @@ export default function RuleModal({
                   rows={5}
                   value={contentTpl}
                   onChange={(e) => setContentTpl(e.target.value)}
+                  placeholder={MONITOR_DEFAULT_TEMPLATE}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <span className="block text-[11px] text-slate-400">
+                  示例：{MONITOR_DEFAULT_TEMPLATE}
+                </span>
                 <span className="block text-[11px] text-slate-400">
                   支持变量：{"{planName}"} {"{itemName}"} {"{periodLabel}"} {"{dueAt}"}
                 </span>

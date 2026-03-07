@@ -212,7 +212,7 @@ export function buildInstanceCode(
 }
 
 export function buildNotifyTitle(planName: string, itemName: string): string {
-  return `专项监测提醒 | ${planName} | ${itemName}`;
+  return `基础管控中心专项工作监测提醒 | ${planName} | ${itemName}`;
 }
 
 export function parseJsonObject(
