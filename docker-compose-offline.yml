@@ -7,24 +7,30 @@ services:
       - db
       - minio
     environment:
-      DATABASE_URL: "postgresql://postgres:Asd%40199312@db:5432/postgres?schema=public"
-      JWT_SECRET: "change_me_in_production"
-      MINIO_ENDPOINT: "http://minio:9000"
-      MINIO_ACCESS_KEY: "minioadmin"
-      MINIO_SECRET_KEY: "minioadmin"
-      MINIO_BUCKET: "zhian_fujian"
-      NODE_ENV: "production"
-      COOKIE_SECURE: "false"
-      MONITOR_JOB_TOKEN: "change_me_for_internal_cron"
-      MONITOR_INSTANCE_LOOKAHEAD_DAYS: "60"
-      MONITOR_INSTANCE_BACKFILL_DAYS: "7"
-      MONITOR_NOTIFY_RETRY_LIMIT: "5"
-      MONITOR_SMS_DRIVER: "mock"
-      ORACLE_SMS_USER: ""
-      ORACLE_SMS_PASSWORD: ""
-      ORACLE_SMS_CONNECT_STRING: ""
-      ORACLE_SMS_TABLE: "SMS_QUEUE"
-      ORACLE_CLIENT_LIB_DIR: "/opt/oracle/instantclient"
+      DATABASE_URL: "${DATABASE_URL}"
+      JWT_SECRET: "${JWT_SECRET}"
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      MINIO_BUCKET: "${MINIO_BUCKET}"
+      NODE_ENV: "${NODE_ENV:-production}"
+      TZ: "${TZ:-Asia/Shanghai}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      MONITOR_JOB_TOKEN: "${MONITOR_JOB_TOKEN}"
+      MONITOR_INSTANCE_LOOKAHEAD_DAYS: "${MONITOR_INSTANCE_LOOKAHEAD_DAYS:-60}"
+      MONITOR_INSTANCE_BACKFILL_DAYS: "${MONITOR_INSTANCE_BACKFILL_DAYS:-7}"
+      MONITOR_NOTIFY_RETRY_LIMIT: "${MONITOR_NOTIFY_RETRY_LIMIT:-5}"
+      MONITOR_SMS_DRIVER: "${MONITOR_SMS_DRIVER:-mock}"
+      ORACLE_SMS_USER: "${ORACLE_SMS_USER:-}"
+      ORACLE_SMS_PASSWORD: "${ORACLE_SMS_PASSWORD:-}"
+      ORACLE_SMS_CONNECT_STRING: "${ORACLE_SMS_CONNECT_STRING:-}"
+      ORACLE_SMS_TABLE: "${ORACLE_SMS_TABLE:-SMS_QUEUE}"
+      ORACLE_SMS_INSERT_SQL: "${ORACLE_SMS_INSERT_SQL:-}"
+      ORACLE_SMS_EXISTS_SQL: "${ORACLE_SMS_EXISTS_SQL:-}"
+      ORACLE_SMS_QUEUE_USERID: "${ORACLE_SMS_QUEUE_USERID:-}"
+      ORACLE_SMS_QUEUE_PASSWORD: "${ORACLE_SMS_QUEUE_PASSWORD:-}"
+      ORACLE_SMS_USERPORT: "${ORACLE_SMS_USERPORT:-0006}"
+      ORACLE_CLIENT_LIB_DIR: "${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient}"
     ports:
       - "3000:3000"
 
@@ -33,9 +39,10 @@ services:
     container_name: zhian-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "Asd@199312"
-      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-Asd@199312}"
+      POSTGRES_DB: "${POSTGRES_DB:-postgres}"
+      TZ: "${TZ:-Asia/Shanghai}"
     ports:
       - "5432:5432"
     volumes:
