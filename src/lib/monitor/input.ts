@@ -242,6 +242,9 @@ export function parseRuleInput(body: unknown) {
   if (!channelSms && !channelSystem) {
     return { error: "请至少启用一种提醒渠道" } as const;
   }
+  if (triggerType === "ON_DUE" && (offsetDays > 0 || offsetHours > 0)) {
+    return { error: "鍒版湡褰撳ぉ鎻愰啋涓嶆敮鎸佸亸绉婚噺锛岃灏嗗ぉ鏁板拰灏忔椂璁句负 0" } as const;
+  }
   if (repeatType === "EVERY_N_HOURS" && !repeatInterval) {
     return { error: "每 N 小时提醒必须配置 repeatInterval" } as const;
   }

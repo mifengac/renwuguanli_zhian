@@ -409,3 +409,179 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/monitor/jobs/scan
 curl.exe "http://127.0.0.1:3000/api/monitor/logs?page=1&pageSize=20&channel=SMS"
 docker logs --tail 200 zhian-app
 ```
+===
+发短信的业务逻辑不是“时间一到自动发”，而是“`scan` 扫描时，如果规则命中，就写通知日志并发短信”。
+
+核心流程在 [src/lib/monitor/reminder-service.ts](/C:/Users/So/Desktop/project/renwuguanli_zhian/src/lib/monitor/reminder-service.ts)：
+
+1. 先取符合条件的实例  
+要求：
+- 专项 `ENABLED`
+- 事项 `ACTIVE` 且 `isEnabled=true`
+- 规则 `isEnabled=true`
+- 实例状态在 `PENDING / OVERDUE / COMPLETED`
+
+2. 对每条规则计算“当前这一刻是否命中”
+关键看：
+- `triggerType`：`BEFORE_DUE / ON_DUE / AFTER_DUE`
+- `repeatType`：`ONCE / DAILY / WORKDAY_DAILY / EVERY_N_HOURS`
+- `remindTime`
+- 实例的 `dueAt`
+
+3. 命中后不一定发送，还会继续判断是否跳过
+会跳过的情况主要有：
+- 今天这个触发键已经发过了，去重
+- 达到 `maxTimes`
+- 事项已完成且 `stopWhenDone=true`
+- 没有提醒人员
+
+4. 真正发送时
+- `channelSystem=true` 会写系统通知
+- `channelSms=true` 才会走短信
+- 短信调用 Oracle 队列发送
+
+你这次最关键的线索不是“14:27 没收到”，而是你之前 `scan` 的结果：
+
+```text
+createdLogCount=0
+sentCount=0
+failedCount=0
+skippedCount=3
+```
+
+这说明不是“短信发送失败”，而是“规则命中了，但被跳过了”。因为如果根本没命中时间窗口，`createdLogCount` 会是 0，但通常不会出现这类命中后的 `skippedCount`。
+
+按代码，命中后被跳过只剩这几种高概率原因：
+
+- 这条规则今天这个时间点已经扫过一次，去重了
+- 规则设置了 `maxTimes`，次数用完了
+- 实例已完成，且 `stopWhenDone=true`
+- 提醒人员列表为空
+
+你说“提醒人员是我”，那更大的嫌疑就是前两项，尤其是“今天已经为这个规则生成过同一个 `triggerKey`”。
+
+还有一个常见误区：
+你把规则从 `14:25` 改成 `14:27`，并不代表系统会在 `14:27:00` 主动自己跑。必须在 `14:27` 之后你再执行一次：
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:3000/api/monitor/jobs/scan" `
+  -Headers @{ "x-monitor-job-token" = "你的真实MONITOR_JOB_TOKEN" } `
+  -ContentType "application/json" `
+  -Body '{"planId":1}'
+```
+
+如果你是 `14:26` 扫了一次，然后等到 `14:27` 什么都不做，它不会自己发。
+
+你现在最应该查的是“为什么被 skip”。直接跑这三条 SQL：
+
+1. 查今天是否已经有该规则的通知日志
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, instance_id, rule_id, trigger_key, channel, send_status, receiver_name, receiver_mobile, fail_reason, created_at from monitor_notify_log order by id desc limit 50;"
+```
+
+2. 查规则本身
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, item_id, rule_name, trigger_type, repeat_type, remind_time, max_times, channel_sms, channel_system, stop_when_done, is_enabled from monitor_rule order by id desc;"
+```
+
+3. 查实例状态
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, plan_id, item_id, due_at, status, remind_count, first_remind_at, last_remind_at from monitor_instance where plan_id = 1 order by id desc;"
+```
+
+如果你把这三条结果贴出来，我可以直接告诉你是：
+- 已经去重了
+- `maxTimes` 限制住了
+- 实例已完成
+- 还是规则类型本身和你预期不一致
+
+目前从你给出的现象看，最像的是“你改了时间，但这条规则在今天这个周期已经被去重了”，不是 Oracle 短信通道本身有问题。
+===
+现在可以确定一件事：
+
+`scan` 的结果一直是
+
+- `createdLogCount=0`
+- `skippedCount=0`
+
+这说明不是“短信发送失败”，也不是“提醒人为空被跳过”，而是**规则时间判断根本没有命中**。
+
+按当前代码，出现这种结果，最可能只剩两类原因：
+
+1. 你执行 `scan` 时，容器里的“当前时间”还没到规则应触发的时间  
+2. 规则的 `offset_days / offset_hours` 实际并没有变成你以为的值
+
+你刚才贴的 SQL 里没有查 `offset_days` 和 `offset_hours`，所以现在还不能证明“偏移 2 小时”真的保存进数据库了。
+
+先直接跑这 3 条，别改别的：
+
+```powershell
+docker exec zhian-app date
+docker exec zhian-app printenv | findstr TZ
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, item_id, rule_name, trigger_type, repeat_type, offset_days, offset_hours, remind_time, channel_sms, channel_system, is_enabled from monitor_rule order by id desc;"
+```
+
+我先把当前逻辑给你压缩成结论：
+
+**如果规则是 `ON_DUE + DAILY + 15:09:00`**
+- 只会在“实例截止当天”触发
+- 今天这条实例是 `2026-03-09 17:00:00`
+- 所以只有在容器时间已经到 `2026-03-09 15:09` 之后，再执行 `scan`，才会命中
+
+**如果规则是 `BEFORE_DUE + DAILY + offset_hours=2 + 15:07:00`**
+- 截止时间 `17:00`
+- anchor 会变成 `15:00`
+- 只有在容器时间到 `2026-03-09 15:07` 之后，再执行 `scan`，才会命中
+- 但前提是数据库里 `offset_hours` 真的是 `2`
+
+你现在最像是这两种情况之一：
+- 容器时间虽然修了时区，但你执行 `scan` 的实际时刻仍早于规则时间
+- UI 改了偏移，但数据库没保存成功
+
+再补一个容易忽略的点：  
+你每次贴出来的规则查询，时间确实变了，但你从来没贴 `offset_days / offset_hours`。所以“第二版和第三版”是否真的生效，目前证据不够。
+
+**下一步最有效的验证方式**
+
+1. 把规则改成一个明确的未来时间，比如当前是 `2026-03-09 15:20`，就改成：
+- `ON_DUE`
+- `DAILY`
+- `remind_time = 15:25:00`
+
+2. 到 `2026-03-09 15:26` 之后，先看容器时间：
+```powershell
+docker exec zhian-app date
+```
+
+3. 然后立刻执行：
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:3000/api/monitor/jobs/scan" `
+  -Headers @{ "x-monitor-job-token" = "asd199312" } `
+  -ContentType "application/json" `
+  -Body '{"planId":2}'
+```
+
+4. 再查：
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, instance_id, rule_id, trigger_key, channel, send_status, receiver_name, receiver_mobile, fail_reason, created_at from monitor_notify_log order by id desc limit 20;"
+```
+
+**如果还不出日志**
+那就基本可以锁定为配置保存问题或代码判断 bug。  
+到那一步，我建议直接查这两张表：
+
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select id, item_id, rule_name, trigger_type, repeat_type, offset_days, offset_hours, remind_time, max_times, channel_sms, channel_system, stop_when_done, is_enabled from monitor_rule order by id desc;"
+```
+
+```powershell
+docker exec -it zhian-postgres psql -U postgres -d postgres -c "select item_id, user_id, user_name, mobile, role_type, is_enabled from monitor_item_user where item_id = 2 order by id;"
+```
+
+把这两条结果和 `docker exec zhian-app date` 的输出贴出来，我可以直接判断是：
+- 时间没到
+- 偏移没保存
+- 提醒人手机号没落库
+- 还是代码里的规则判断有缺陷。

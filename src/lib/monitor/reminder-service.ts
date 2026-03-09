@@ -38,6 +38,22 @@ type ReminderEvaluation = {
   scheduledAt: Date;
 };
 
+// monitor_instance.due_at is stored as a timezone-less wall-clock timestamp.
+// Prisma materializes it as a Date, which can shift the local day/time when the
+// runtime timezone differs from the writer timezone. Rebuild the local wall-clock
+// time from the UTC parts before any reminder comparisons.
+function toMonitorWallClock(date: Date): Date {
+  return new Date(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds()
+  );
+}
+
 function sanitizeKey(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
@@ -78,7 +94,7 @@ function evaluateRuleTrigger(
   >,
   now: Date
 ): ReminderEvaluation | null {
-  const dueAt = new Date(instance.dueAt);
+  const dueAt = toMonitorWallClock(new Date(instance.dueAt));
   const anchor = buildRuleAnchor(
     dueAt,
     rule.triggerType as MonitorTriggerTypeValue,
@@ -286,18 +302,22 @@ export async function refreshOverdueMonitorInstances(options?: {
   const now = options?.now ?? new Date();
   const actor = options?.actor;
 
-  const overdueInstances = await prisma.monitorInstance.findMany({
+  const pendingInstances = await prisma.monitorInstance.findMany({
     where: {
       status: "PENDING",
-      dueAt: { lt: now },
       ...(options?.planId ? { planId: options.planId } : {}),
     },
     select: {
       id: true,
       planId: true,
       itemId: true,
+      dueAt: true,
     },
   });
+
+  const overdueInstances = pendingInstances.filter(
+    (instance) => toMonitorWallClock(new Date(instance.dueAt)).getTime() < now.getTime()
+  );
 
   for (const instance of overdueInstances) {
     await prisma.$transaction(async (tx) => {
@@ -426,7 +446,7 @@ export async function scanMonitorReminders(options: {
         planName: instance.plan.planName,
         itemName: instance.item.itemName,
         periodLabel: instance.periodLabel,
-        dueAt: formatDateTime(instance.dueAt),
+        dueAt: formatDateTime(toMonitorWallClock(new Date(instance.dueAt))),
       });
       const title = buildNotifyTitle(instance.plan.planName, instance.item.itemName);
 
