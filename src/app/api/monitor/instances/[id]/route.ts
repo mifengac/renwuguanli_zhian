@@ -6,6 +6,10 @@ import {
   notFoundResponse,
   unauthorizedResponse,
 } from "@/lib/server-auth";
+import {
+  formatMonitorTimeZoneDateTime,
+  formatMonitorWallClockDateTime,
+} from "@/lib/monitor/time";
 
 function getId(params: { id: string }) {
   const id = Number(params.id);
@@ -50,5 +54,21 @@ export async function GET(
     return notFoundResponse("实例不存在");
   }
 
-  return NextResponse.json({ instance });
+  return NextResponse.json({
+    instance: {
+      ...instance,
+      dueAt: formatMonitorWallClockDateTime(instance.dueAt),
+      firstRemindAt: formatMonitorTimeZoneDateTime(instance.firstRemindAt),
+      lastRemindAt: formatMonitorTimeZoneDateTime(instance.lastRemindAt),
+      completedAt: formatMonitorTimeZoneDateTime(instance.completedAt),
+      createdAt: formatMonitorTimeZoneDateTime(instance.createdAt),
+      updatedAt: formatMonitorTimeZoneDateTime(instance.updatedAt),
+      notifyLogs: instance.notifyLogs.map((log) => ({
+        ...log,
+        sendTime: formatMonitorTimeZoneDateTime(log.sendTime),
+        createdAt: formatMonitorTimeZoneDateTime(log.createdAt),
+        oraclePushTime: formatMonitorTimeZoneDateTime(log.oraclePushTime),
+      })),
+    },
+  });
 }

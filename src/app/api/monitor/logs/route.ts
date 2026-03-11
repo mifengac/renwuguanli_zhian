@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorizedResponse } from "@/lib/server-auth";
+import { formatMonitorTimeZoneDateTime } from "@/lib/monitor/time";
 
 function parsePage(value: string | null, fallback: number) {
   const next = Number(value);
@@ -113,9 +114,15 @@ export async function GET(req: NextRequest) {
     }),
     prisma.monitorNotifyLog.count({ where }),
   ]);
+  const serializedLogs = logs.map((log) => ({
+    ...log,
+    sendTime: formatMonitorTimeZoneDateTime(log.sendTime),
+    createdAt: formatMonitorTimeZoneDateTime(log.createdAt),
+    oraclePushTime: formatMonitorTimeZoneDateTime(log.oraclePushTime),
+  }));
 
   return NextResponse.json({
-    logs,
+    logs: serializedLogs,
     pagination: {
       page,
       pageSize,

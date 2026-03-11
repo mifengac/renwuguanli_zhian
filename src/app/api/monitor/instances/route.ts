@@ -3,6 +3,10 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorizedResponse } from "@/lib/server-auth";
 import { refreshOverdueMonitorInstances } from "@/lib/monitor/reminder-service";
+import {
+  formatMonitorTimeZoneDateTime,
+  formatMonitorWallClockDateTime,
+} from "@/lib/monitor/time";
 
 function parsePage(value: string | null, fallback: number) {
   const next = Number(value);
@@ -97,9 +101,18 @@ export async function GET(req: NextRequest) {
     }),
     prisma.monitorInstance.count({ where }),
   ]);
+  const serializedInstances = instances.map((instance) => ({
+    ...instance,
+    dueAt: formatMonitorWallClockDateTime(instance.dueAt),
+    firstRemindAt: formatMonitorTimeZoneDateTime(instance.firstRemindAt),
+    lastRemindAt: formatMonitorTimeZoneDateTime(instance.lastRemindAt),
+    completedAt: formatMonitorTimeZoneDateTime(instance.completedAt),
+    createdAt: formatMonitorTimeZoneDateTime(instance.createdAt),
+    updatedAt: formatMonitorTimeZoneDateTime(instance.updatedAt),
+  }));
 
   return NextResponse.json({
-    instances,
+    instances: serializedInstances,
     pagination: {
       page,
       pageSize,

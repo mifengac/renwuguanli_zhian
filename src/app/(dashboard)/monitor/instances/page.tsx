@@ -328,7 +328,7 @@ function MonitorInstancesPageContent() {
                         <div className="mt-1 text-slate-400">{instance.periodKey}</div>
                       </td>
                       <td className="px-4 py-4 align-top text-xs text-slate-600">
-                        {instance.dueAt.replace("T", " ").slice(0, 16)}
+                        {instance.dueAt || "-"}
                       </td>
                       <td className="px-4 py-4 align-top">
                         <span className={`rounded-full px-2.5 py-1 text-xs ${getStatusClass(instance.status)}`}>
@@ -338,15 +338,11 @@ function MonitorInstancesPageContent() {
                       <td className="px-4 py-4 align-top text-xs text-slate-600">
                         <div>{instance.remindCount} 次</div>
                         <div className="mt-1 text-slate-400">
-                          {instance.lastRemindAt
-                            ? instance.lastRemindAt.replace("T", " ").slice(0, 16)
-                            : "-"}
+                          {instance.lastRemindAt || "-"}
                         </div>
                       </td>
                       <td className="px-4 py-4 align-top text-xs text-slate-600">
-                        {instance.completedAt
-                          ? instance.completedAt.replace("T", " ").slice(0, 16)
-                          : "-"}
+                        {instance.completedAt || "-"}
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="flex flex-wrap gap-2 text-xs">

@@ -5,6 +5,7 @@ import {
   getCurrentUser,
   unauthorizedResponse,
 } from "@/lib/server-auth";
+import { formatMonitorTimeZoneDateTime } from "@/lib/monitor/time";
 
 function getId(params: { id: string }) {
   const id = Number(params.id);
@@ -34,6 +35,12 @@ export async function GET(
     },
     orderBy: [{ createdAt: "desc" }],
   });
+  const serializedLogs = logs.map((log) => ({
+    ...log,
+    sendTime: formatMonitorTimeZoneDateTime(log.sendTime),
+    createdAt: formatMonitorTimeZoneDateTime(log.createdAt),
+    oraclePushTime: formatMonitorTimeZoneDateTime(log.oraclePushTime),
+  }));
 
-  return NextResponse.json({ logs });
+  return NextResponse.json({ logs: serializedLogs });
 }

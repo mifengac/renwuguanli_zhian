@@ -281,7 +281,7 @@ export default function MonitorLogsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4 align-top text-xs text-slate-600">
-                      {log.sendTime ? log.sendTime.replace("T", " ").slice(0, 16) : "-"}
+                      {log.sendTime || "-"}
                     </td>
                     <td className="px-4 py-4 align-top text-xs text-slate-600">
                       {log.failReason || "-"}

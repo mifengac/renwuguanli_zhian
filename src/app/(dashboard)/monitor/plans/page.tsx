@@ -746,7 +746,7 @@ export default function MonitorPlansPage() {
                     {notice.content}
                   </p>
                   <div className="mt-2 text-[11px] text-slate-400">
-                    {notice.instance.periodLabel} · {notice.createdAt.replace("T", " ").slice(0, 16)}
+                    {notice.instance.periodLabel} · {notice.createdAt || "-"}
                   </div>
                 </div>
               ))}
