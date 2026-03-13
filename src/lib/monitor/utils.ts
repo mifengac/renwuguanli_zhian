@@ -47,12 +47,13 @@ export function parseDateOnly(value: string | null | undefined): Date | null {
   const year = Number(matched[1]);
   const monthIndex = Number(matched[2]) - 1;
   const day = Number(matched[3]);
-  const date = new Date(year, monthIndex, day, 0, 0, 0, 0);
+  // 使用 UTC 午夜，避免服务器时区（UTC+8）导致日期序列化后偏移一天
+  const date = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
 
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== monthIndex ||
-    date.getDate() !== day
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== monthIndex ||
+    date.getUTCDate() !== day
   ) {
     return null;
   }
